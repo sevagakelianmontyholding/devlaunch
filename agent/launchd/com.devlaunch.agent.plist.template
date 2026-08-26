@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.devlaunch.agent</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>__NODE_PATH__</string>
+    <string>__AGENT_ENTRY__</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>__AGENT_DIRECTORY__</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>__AGENT_PATH__</string>
+    <key>DEVLAUNCH_PROJECTS_ROOT</key>
+    <string>__PROJECTS_ROOT__</string>
+    <key>DEVLAUNCH_DATABASE_PATH</key>
+    <string>__DATABASE_PATH__</string>
+    <key>DEVLAUNCH_AGENT_HOST</key>
+    <string>127.0.0.1</string>
+    <key>DEVLAUNCH_AGENT_PORT</key>
+    <string>__AGENT_PORT__</string>
+    <key>DEVLAUNCH_NPM_DB</key>
+    <string>__NPM_DATABASE_PATH__</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <key>StandardOutPath</key>
+  <string>__LOG_PATH__</string>
+  <key>StandardErrorPath</key>
+  <string>__ERROR_LOG_PATH__</string>
+</dict>
+</plist>

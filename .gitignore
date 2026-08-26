@@ -1,0 +1,13 @@
+.DS_Store
+.env
+!.env.example
+
+**/node_modules/
+**/.next/
+agent/dist/
+
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+*.log

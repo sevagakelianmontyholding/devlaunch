@@ -40,6 +40,7 @@ import type {
 import { ProjectSection } from "./project-section";
 import { CommandPalette } from "./command-palette";
 import { ProjectDetailPage } from "./project-detail-page";
+import { ActivityView, ServicesView, SettingsView } from "./system-views";
 import { ProjectFormDialog } from "./add-project-dialog";
 
 type SortMode = "status" | "recent" | "name";
@@ -117,6 +118,9 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<"all" | ProjectCategory>("all");
+  const [activeView, setActiveView] = useState<"projects" | "activity" | "services" | "settings">(
+    "projects",
+  );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -130,6 +134,7 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
   const [proxyManager, setProxyManager] = useState<ProxyManagerStatus | null>(null);
   const [githubIntegration, setGithubIntegration] = useState<GitHubIntegrationStatus | null>(null);
   const [lastChecked, setLastChecked] = useState<string | null>(null);
+  const [projectsRoot, setProjectsRoot] = useState<string | null>(null);
   const [addProjectOpen, setAddProjectOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [pendingProject, setPendingProject] = useState<string | null>(null);
@@ -152,6 +157,7 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
       setProxyManager(status.proxyManager);
       setGithubIntegration(status.github);
       setLastChecked(status.agent.checkedAt);
+      setProjectsRoot(status.agent.projectsRoot);
     } catch {
       setAgentState("offline");
       setDockerAvailable(false);
@@ -238,6 +244,13 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
         event.preventDefault();
         setPaletteOpen((current) => !current);
       }
+      if ((event.metaKey || event.ctrlKey) && event.key === ",") {
+        event.preventDefault();
+        setActiveView("settings");
+        setSelectedProjectId(null);
+        window.history.replaceState(null, "", window.location.pathname);
+        setMobileNavOpen(false);
+      }
     };
 
     window.addEventListener("keydown", handleShortcut);
@@ -306,6 +319,32 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
   const closeProjectDetails = useCallback(() => {
     setSelectedProjectId(null);
     window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
+  // Sidebar navigation: switch the content view and leave any open project detail.
+  const navigateTo = useCallback(
+    (view: "projects" | "activity" | "services" | "settings") => {
+      setActiveView(view);
+      setMobileNavOpen(false);
+      closeProjectDetails();
+    },
+    [closeProjectDetails],
+  );
+
+  const clearActivity = useCallback(() => {
+    setActivity([]);
+    window.localStorage.removeItem(activityStorageKey);
+  }, []);
+
+  const resetPreferences = useCallback(() => {
+    setFavoriteIds([]);
+    setRecentProjects([]);
+    setActivity([]);
+    setSortMode("status");
+    for (const key of [favoritesStorageKey, recentStorageKey, activityStorageKey, sortStorageKey]) {
+      window.localStorage.removeItem(key);
+    }
+    setNotification({ kind: "success", message: "Local preferences were reset" });
   }, []);
 
   // Keep the detail page in sync with the URL so browser back/forward and
@@ -555,7 +594,7 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
                 item.id === "all"
                   ? projects.length
                   : projects.filter((project) => project.category === item.id).length;
-              const isActive = category === item.id;
+              const isActive = activeView === "projects" && category === item.id;
 
               return (
                 <button
@@ -563,7 +602,7 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
                   type="button"
                   onClick={() => {
                     setCategory(item.id);
-                    setMobileNavOpen(false);
+                    navigateTo("projects");
                   }}
                   className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-[12px] transition ${isActive ? "bg-white/[0.07] text-zinc-100 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]" : "text-zinc-500 hover:bg-white/[0.035] hover:text-zinc-300"}`}
                 >
@@ -581,14 +620,16 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
           <div className="mt-2 space-y-0.5">
             <button
               type="button"
-              className="flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-[12px] text-zinc-500 transition hover:bg-white/[0.035] hover:text-zinc-300"
+              onClick={() => navigateTo("activity")}
+              className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-[12px] transition ${activeView === "activity" ? "bg-white/[0.07] text-zinc-100 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]" : "text-zinc-500 hover:bg-white/[0.035] hover:text-zinc-300"}`}
             >
               <Activity className="size-3.5" />
               Activity
             </button>
             <button
               type="button"
-              className="flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-[12px] text-zinc-500 transition hover:bg-white/[0.035] hover:text-zinc-300"
+              onClick={() => navigateTo("services")}
+              className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-[12px] transition ${activeView === "services" ? "bg-white/[0.07] text-zinc-100 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]" : "text-zinc-500 hover:bg-white/[0.035] hover:text-zinc-300"}`}
             >
               <Blocks className="size-3.5" />
               Services
@@ -665,7 +706,8 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
           </div>
           <button
             type="button"
-            className="flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-[12px] text-zinc-500 transition hover:bg-white/[0.035] hover:text-zinc-300"
+            onClick={() => navigateTo("settings")}
+            className={`flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-[12px] transition ${activeView === "settings" ? "bg-white/[0.07] text-zinc-100 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]" : "text-zinc-500 hover:bg-white/[0.035] hover:text-zinc-300"}`}
           >
             <Settings className="size-3.5" />
             Settings
@@ -749,6 +791,31 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
               onToggleFavorite={toggleFavorite}
               onEdit={() => setEditingProjectId(selectedProject.id)}
               onRemove={() => void handleProjectRemoved(selectedProject.id)}
+            />
+          ) : activeView === "activity" ? (
+            <ActivityView
+              activity={activity}
+              projects={liveProjects}
+              onOpenProject={openProjectDetails}
+              onClear={clearActivity}
+            />
+          ) : activeView === "services" ? (
+            <ServicesView
+              projects={liveProjects}
+              runtimeByProject={runtimeByProject}
+              agentOnline={agentState === "online"}
+              onOpenProject={openProjectDetails}
+            />
+          ) : activeView === "settings" ? (
+            <SettingsView
+              agentOnline={agentState === "online"}
+              dockerAvailable={dockerAvailable}
+              lastChecked={lastChecked}
+              projectsRoot={projectsRoot}
+              projectCount={projects.length}
+              github={githubIntegration}
+              proxyManager={proxyManager}
+              onResetPreferences={resetPreferences}
             />
           ) : (
             <>

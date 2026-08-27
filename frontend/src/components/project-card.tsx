@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Code2,
@@ -46,6 +49,25 @@ export function ProjectCard({
   onToggleFavorite: (id: string) => void;
   onOpenDetails: (id: string) => void;
 }) {
+  const [repoMenuOpen, setRepoMenuOpen] = useState(false);
+  const repoMenuRef = useRef<HTMLSpanElement | null>(null);
+
+  useEffect(() => {
+    if (!repoMenuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!repoMenuRef.current?.contains(event.target as Node)) setRepoMenuOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setRepoMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [repoMenuOpen]);
+
   const liveProjectStatus = runtime
     ? runtime.exists
       ? runtime.docker.running
@@ -57,6 +79,9 @@ export function ProjectCard({
   const branch = runtime?.git?.branch ?? project.branch;
   const localUrl = project.links.local ?? runtime?.localUrls[0];
   const links = { ...project.links, local: localUrl };
+  const githubRepositories = (runtime?.repositories ?? []).filter(
+    (repository) => repository.githubUrl,
+  );
 
   return (
     <article
@@ -64,13 +89,14 @@ export function ProjectCard({
         if ((event.target as HTMLElement).closest("button, a")) return;
         onOpenDetails(project.id);
       }}
-      className="group relative flex min-h-[256px] cursor-pointer flex-col overflow-hidden rounded-2xl border border-white/[0.075] bg-[#111216]/90 p-5 shadow-[0_1px_0_rgba(255,255,255,0.035)_inset,0_22px_60px_rgba(0,0,0,0.2)] transition duration-300 hover:-translate-y-0.5 hover:border-white/[0.14] hover:bg-[#131419]"
+      className="group relative flex min-h-[256px] cursor-pointer flex-col rounded-2xl border border-white/[0.075] bg-[#111216]/90 p-5 shadow-[0_1px_0_rgba(255,255,255,0.035)_inset,0_22px_60px_rgba(0,0,0,0.2)] transition duration-300 hover:-translate-y-0.5 hover:border-white/[0.14] hover:bg-[#131419]"
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-8 -top-12 h-32 w-32 rounded-full opacity-[0.08] blur-3xl transition-opacity duration-300 group-hover:opacity-[0.16]"
-        style={{ backgroundColor: project.accent }}
-      />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+        <div
+          className="absolute -right-8 -top-12 h-32 w-32 rounded-full opacity-[0.08] blur-3xl transition-opacity duration-300 group-hover:opacity-[0.16]"
+          style={{ backgroundColor: project.accent }}
+        />
+      </div>
 
       <div className="relative flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3.5">
@@ -208,6 +234,59 @@ export function ProjectCard({
                 >
                   <Icon className="size-3.5" />
                 </button>
+              );
+            }
+
+            if (key === "github" && githubRepositories.length > 1) {
+              return (
+                <span
+                  key={key}
+                  ref={repoMenuRef}
+                  onClick={(event) => event.stopPropagation()}
+                  className="relative"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setRepoMenuOpen((open) => !open)}
+                    aria-label={`GitHub: ${project.name} (${githubRepositories.length} repositories)`}
+                    aria-expanded={repoMenuOpen}
+                    title={`GitHub · ${githubRepositories.length} repositories`}
+                    className={`relative grid size-7 place-items-center rounded-md transition hover:bg-white/[0.08] hover:text-zinc-100 ${repoMenuOpen ? "bg-white/[0.08] text-zinc-100" : "text-zinc-500"}`}
+                  >
+                    <Icon className="size-3.5" />
+                    <span className="absolute -right-0.5 -top-0.5 grid size-3 place-items-center rounded-full bg-zinc-700 text-[8px] font-semibold text-zinc-200">
+                      {githubRepositories.length}
+                    </span>
+                  </button>
+                  {repoMenuOpen && (
+                    <div className="absolute bottom-full right-0 z-20 mb-2 min-w-44 rounded-xl border border-white/10 bg-[#16171c] p-1 shadow-[0_18px_48px_rgba(0,0,0,0.5)]">
+                      {githubRepositories.map((repository) => (
+                        <a
+                          key={repository.relativePath}
+                          href={repository.githubUrl!}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={() => {
+                            setRepoMenuOpen(false);
+                            onProjectUsed(project.id);
+                          }}
+                          className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-[12px] text-zinc-300 transition hover:bg-white/[0.06] hover:text-zinc-100"
+                        >
+                          <GitFork className="size-3 shrink-0 text-zinc-500" />
+                          <span className="truncate font-mono">
+                            {repository.relativePath === "." ? "Root folder" : repository.relativePath}
+                          </span>
+                          {repository.git.dirty && (
+                            <span
+                              className="ml-auto size-1.5 shrink-0 rounded-full bg-amber-300"
+                              title="Uncommitted changes"
+                            />
+                          )}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </span>
               );
             }
 

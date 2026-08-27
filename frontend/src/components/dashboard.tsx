@@ -16,6 +16,7 @@ import {
   GitFork,
   Grid2X2,
   Keyboard,
+  LoaderCircle,
   Menu,
   Plus,
   Search,
@@ -38,7 +39,7 @@ import type {
 } from "@/types/agent";
 import { ProjectSection } from "./project-section";
 import { CommandPalette } from "./command-palette";
-import { ProjectDetailDrawer } from "./project-detail-drawer";
+import { ProjectDetailPage } from "./project-detail-page";
 import { ProjectFormDialog } from "./add-project-dialog";
 
 type SortMode = "status" | "recent" | "name";
@@ -100,6 +101,17 @@ const categories: Array<{
   { id: "work", label: "Work", icon: FolderKanban },
   { id: "personal", label: "Personal", icon: UserRound },
 ];
+
+function discoveredLocalUrl(runtime: AgentProjectStatus) {
+  const primaryDomain =
+    runtime.domains.find(
+      (domain) => domain.hostname.endsWith(".localhost") && domain.health?.healthy,
+    ) ??
+    runtime.domains.find((domain) => domain.hostname.endsWith(".localhost")) ??
+    runtime.domains.find((domain) => domain.health?.healthy) ??
+    runtime.domains[0];
+  return primaryDomain?.url ?? runtime.localUrls[0];
+}
 
 export function Dashboard({ projects: initialProjects }: { projects: Project[] }) {
   const [projects, setProjects] = useState<Project[]>(initialProjects);
@@ -286,11 +298,28 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
     (id: string) => {
       markProjectUsed(id);
       setSelectedProjectId(id);
+      window.history.pushState(null, "", `?project=${encodeURIComponent(id)}`);
     },
     [markProjectUsed],
   );
 
-  const closeProjectDetails = useCallback(() => setSelectedProjectId(null), []);
+  const closeProjectDetails = useCallback(() => {
+    setSelectedProjectId(null);
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+
+  // Keep the detail page in sync with the URL so browser back/forward and
+  // direct links like /?project=comium work.
+  useEffect(() => {
+    const applyLocation = () =>
+      setSelectedProjectId(new URLSearchParams(window.location.search).get("project"));
+    const initial = window.setTimeout(applyLocation, 0);
+    window.addEventListener("popstate", applyLocation);
+    return () => {
+      window.clearTimeout(initial);
+      window.removeEventListener("popstate", applyLocation);
+    };
+  }, []);
 
   const closeAddProject = useCallback(() => setAddProjectOpen(false), []);
 
@@ -312,13 +341,6 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
       projects.map((project) => {
         const runtime = runtimeByProject[project.id];
         if (!runtime) return project;
-        const primaryDomain =
-          runtime.domains.find(
-            (domain) => domain.hostname.endsWith(".localhost") && domain.health?.healthy,
-          ) ??
-          runtime.domains.find((domain) => domain.hostname.endsWith(".localhost")) ??
-          runtime.domains.find((domain) => domain.health?.healthy) ??
-          runtime.domains[0];
 
         return {
           ...project,
@@ -330,7 +352,7 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
           branch: runtime.git?.branch ?? project.branch,
           links: {
             ...project.links,
-            local: primaryDomain?.url ?? runtime.localUrls[0] ?? project.links.local,
+            local: project.links.local ?? discoveredLocalUrl(runtime),
           },
         };
       }),
@@ -475,10 +497,30 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
   const editingProject = editingProjectId
     ? projects.find((project) => project.id === editingProjectId)
     : undefined;
+  const editingRuntime = editingProjectId ? runtimeByProject[editingProjectId] : undefined;
+  const editingAutoLocalUrl = editingRuntime ? discoveredLocalUrl(editingRuntime) : undefined;
   const selectedProjectActivity = selectedProjectId
     ? activity.filter((entry) => entry.projectId === selectedProjectId)
     : [];
   const runningCount = liveProjects.filter((project) => project.status === "running").length;
+
+  if (agentState === "checking") {
+    return (
+      <div className="grid min-h-screen place-items-center bg-[#090a0d] text-zinc-100">
+        <div className="dashboard-grid pointer-events-none fixed inset-0" />
+        <div className="relative flex flex-col items-center">
+          <div className="grid size-12 place-items-center rounded-2xl border border-white/10 bg-gradient-to-br from-violet-500 to-indigo-700 text-white shadow-[0_0_44px_rgba(124,108,255,0.35)]">
+            <Command className="size-6" strokeWidth={2.2} />
+          </div>
+          <p className="mt-4 text-[15px] font-semibold tracking-[-0.02em] text-zinc-100">DevLaunch</p>
+          <div className="mt-3 flex items-center gap-2 text-[12px] text-zinc-500">
+            <LoaderCircle className="size-3.5 animate-spin text-violet-300" />
+            Loading your workspace…
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#090a0d] text-zinc-100 selection:bg-violet-500/30">
@@ -610,7 +652,7 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
               <Zap className="size-3.5 text-violet-300" />
               Local agent
               <span
-                className={`ml-auto size-1.5 rounded-full ${agentState === "online" ? "bg-emerald-400 shadow-[0_0_7px_#34d399]" : agentState === "checking" ? "animate-pulse bg-amber-300" : "bg-zinc-600"}`}
+                className={`ml-auto size-1.5 rounded-full ${agentState === "online" ? "bg-emerald-400 shadow-[0_0_7px_#34d399]" : "bg-zinc-600"}`}
               />
             </div>
             <p className="mt-1.5 text-[12px] leading-4 text-zinc-600">
@@ -618,9 +660,7 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
                 ? dockerAvailable
                   ? "Live Git and Docker controls are ready."
                   : "Git is ready; Docker is unavailable."
-                : agentState === "checking"
-                  ? "Connecting to the local workspace…"
-                  : "Start the agent to enable local controls."}
+                : "Start the agent to enable local controls."}
             </p>
           </div>
           <button
@@ -695,6 +735,23 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
         </header>
 
         <main className="mx-auto w-full max-w-[1540px] px-4 py-7 sm:px-6 lg:px-8 lg:py-9">
+          {selectedProject ? (
+            <ProjectDetailPage
+              project={selectedProject}
+              runtime={runtimeByProject[selectedProject.id]}
+              activity={selectedProjectActivity}
+              favorite={favoriteIdSet.has(selectedProject.id)}
+              agentOnline={agentState === "online"}
+              busy={pendingProject === selectedProject.id}
+              onClose={closeProjectDetails}
+              onAction={handleAction}
+              onProjectUsed={markProjectUsed}
+              onToggleFavorite={toggleFavorite}
+              onEdit={() => setEditingProjectId(selectedProject.id)}
+              onRemove={() => void handleProjectRemoved(selectedProject.id)}
+            />
+          ) : (
+            <>
           <div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
             <div>
               <p className="mb-2 text-[12px] font-medium uppercase tracking-[0.14em] text-violet-400/80">
@@ -715,9 +772,7 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
               >
                 {lastChecked
                   ? `Updated ${new Date(lastChecked).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                  : agentState === "checking"
-                    ? "Checking local status…"
-                    : "Status unavailable"}
+                  : "Status unavailable"}
               </button>
               <label className="relative flex items-center">
                 <span className="sr-only">Sort projects</span>
@@ -846,25 +901,10 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
               })}
             </div>
           </section>
+            </>
+          )}
         </main>
       </div>
-
-      {selectedProject && (
-        <ProjectDetailDrawer
-          project={selectedProject}
-          runtime={runtimeByProject[selectedProject.id]}
-          activity={selectedProjectActivity}
-          favorite={favoriteIdSet.has(selectedProject.id)}
-          agentOnline={agentState === "online"}
-          busy={pendingProject === selectedProject.id}
-          onClose={closeProjectDetails}
-          onAction={handleAction}
-          onProjectUsed={markProjectUsed}
-          onToggleFavorite={toggleFavorite}
-          onEdit={() => setEditingProjectId(selectedProject.id)}
-          onRemove={() => void handleProjectRemoved(selectedProject.id)}
-        />
-      )}
 
       {addProjectOpen && (
         <ProjectFormDialog onClose={closeAddProject} onSaved={handleProjectAdded} />
@@ -873,6 +913,7 @@ export function Dashboard({ projects: initialProjects }: { projects: Project[] }
       {editingProject && (
         <ProjectFormDialog
           project={editingProject}
+          autoLocalUrl={editingAutoLocalUrl}
           onClose={() => setEditingProjectId(null)}
           onSaved={handleProjectUpdated}
         />

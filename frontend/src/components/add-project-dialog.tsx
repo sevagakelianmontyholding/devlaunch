@@ -22,6 +22,7 @@ import type {
 
 type ProjectFormDialogProps = {
   project?: Project;
+  autoLocalUrl?: string;
   onClose: () => void;
   onSaved: (project: RegisteredProject) => void;
 };
@@ -43,11 +44,11 @@ function nameFromPath(localPath: string) {
     .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-export function ProjectFormDialog({ project, onClose, onSaved }: ProjectFormDialogProps) {
+export function ProjectFormDialog({ project, autoLocalUrl, onClose, onSaved }: ProjectFormDialogProps) {
   const editing = Boolean(project);
   const [localPath, setLocalPath] = useState(project?.localPath ?? "");
   const [name, setName] = useState(project?.name ?? "");
-  const [description, setDescription] = useState(project?.description ?? "");
+  const [description, setDescription] = useState(project?.storedDescription ?? "");
   const [category, setCategory] = useState<"work" | "personal">(
     project?.category ?? "work",
   );
@@ -62,7 +63,7 @@ export function ProjectFormDialog({ project, onClose, onSaved }: ProjectFormDial
     (project?.repositoryPaths ?? []).map((relativePath) => ({ relativePath, github: null })),
   );
   const [links, setLinks] = useState<Record<LinkField, string>>({
-    github: project?.links.github ?? "",
+    github: project?.storedGithub ?? "",
     local: project?.links.local ?? "",
     live: project?.links.live ?? "",
   });
@@ -144,6 +145,15 @@ export function ProjectFormDialog({ project, onClose, onSaved }: ProjectFormDial
       setDetecting(false);
     }
   };
+
+  // When editing custom repo folders, only the saved selection is known locally;
+  // fetch the full detected list so unselected or new repositories are choosable.
+  useEffect(() => {
+    if (!project?.repositoryPaths) return;
+    const timer = setTimeout(() => void inspectFolder(false), 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const chooseRepositoryMode = (mode: "auto" | "custom") => {
     setRepositoryMode(mode);
@@ -320,6 +330,7 @@ export function ProjectFormDialog({ project, onClose, onSaved }: ProjectFormDial
                     <LoaderCircle className="size-3.5 animate-spin" /> Detecting Git folders…
                   </p>
                 ) : detectedRepositories.length > 0 ? (
+                  <div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {detectedRepositories.map((repository) => {
                       const selected = repositoryPaths.includes(repository.relativePath);
@@ -346,6 +357,15 @@ export function ProjectFormDialog({ project, onClose, onSaved }: ProjectFormDial
                         </button>
                       );
                     })}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void inspectFolder(false)}
+                    disabled={detecting || submitting}
+                    className="mt-2 text-[11px] font-medium text-violet-300 transition hover:text-violet-200 disabled:text-zinc-500"
+                  >
+                    Re-detect repository folders
+                  </button>
                   </div>
                 ) : (
                   <button
@@ -402,7 +422,11 @@ export function ProjectFormDialog({ project, onClose, onSaved }: ProjectFormDial
               id="project-description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="What this project is for"
+              placeholder={
+                project && !project.storedDescription
+                  ? `Auto: ${project.description}`
+                  : "What this project is for"
+              }
               maxLength={300}
               className="h-11 w-full rounded-lg border border-white/[0.08] bg-[#0b0c0f] px-3 text-[12px] text-zinc-200 outline-none transition placeholder:text-zinc-500 focus:border-violet-400/40 focus:ring-2 focus:ring-violet-500/10"
             />
@@ -438,7 +462,13 @@ export function ProjectFormDialog({ project, onClose, onSaved }: ProjectFormDial
                     onChange={(event) =>
                       setLinks((current) => ({ ...current, [field.id]: event.target.value }))
                     }
-                    placeholder={field.placeholder}
+                    placeholder={
+                      field.id === "github" && project && !project.storedGithub && project.links.github
+                        ? `Auto: ${project.links.github}`
+                        : field.id === "local" && project && !project.links.local && autoLocalUrl
+                          ? `Auto: ${autoLocalUrl}`
+                          : field.placeholder
+                    }
                     inputMode="url"
                     className="h-10 w-full rounded-lg border border-white/[0.08] bg-[#0b0c0f] px-2.5 text-[12px] text-zinc-200 outline-none transition placeholder:text-zinc-600 focus:border-violet-400/40"
                   />

@@ -139,11 +139,13 @@ export type RegisteredProject = {
   id: string;
   name: string;
   description: string;
+  storedDescription: string;
   category: ProjectCategory;
   stack: string[];
   localPath: string;
   repositoryPaths: string[] | null;
   github: string | null;
+  storedGithub: string | null;
   local: string | null;
   live: string | null;
   createdAt: string;

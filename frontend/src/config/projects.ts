@@ -12,6 +12,8 @@ export type Project = {
   id: string;
   name: string;
   description: string;
+  storedDescription: string;
+  storedGithub: string | null;
   category: ProjectCategory;
   accent: string;
   monogram: string;
@@ -28,6 +30,8 @@ type RegistryProject = {
   id: string;
   name: string;
   description: string;
+  storedDescription: string;
+  storedGithub: string | null;
   category: ProjectCategory;
   stack: string[];
   localPath: string;
@@ -55,6 +59,8 @@ export function projectFromRegistry(project: RegistryProject): Project {
     id: project.id,
     name: project.name,
     description: project.description,
+    storedDescription: project.storedDescription,
+    storedGithub: project.storedGithub,
     category: project.category,
     accent: accentForId(project.id),
     monogram: monogram(project.name),

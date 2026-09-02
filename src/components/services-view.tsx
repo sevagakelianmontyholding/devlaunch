@@ -70,8 +70,12 @@ export function ServicesView() {
                       )}
                       {server.memory && <div className="col-span-2 text-ink-dim">Memory {server.memory.used} of {server.memory.total}</div>}
                     </dl>
-                    <div className="mt-3 divide-y divide-line border-t border-line pt-2">
-                      {server.containers.length === 0 && <p className="text-[11px] text-ink-faint">No running containers.</p>}
+                    <div className="mt-3 flex items-center justify-between border-t border-line pt-2 text-[11px] text-ink-faint">
+                      <span>Running containers</span>
+                      <span>{server.containers.length}</span>
+                    </div>
+                    <div className="mt-1 max-h-48 divide-y divide-line overflow-y-auto pr-1">
+                      {server.containers.length === 0 && <p className="py-1.5 text-[11px] text-ink-faint">No running containers.</p>}
                       {server.containers.map((container) => (
                         <div key={container.name} className="flex items-center gap-2 py-1.5 text-[11px]">
                           <Dot tone="success" />

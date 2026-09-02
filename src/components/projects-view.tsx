@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useNavigate } from "./navigate";
-import { Code2, ExternalLink, FileCode2, FolderKanban, Globe2, Plus, Power, Rocket, Search } from "lucide-react";
+import { Code2, ExternalLink, FileCode2, FlaskConical, FolderKanban, Globe2, Plus, Power, Rocket, Search } from "lucide-react";
 import { formatBytes } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { openProject, runCompose } from "@/actions";
@@ -222,6 +222,11 @@ function ProjectCard({
           {localUrl && (
             <a href={localUrl} target="_blank" rel="noreferrer" aria-label="Open local site" title={localUrl} className="grid size-8 place-items-center rounded-lg text-ink-dim transition hover:bg-white/[0.06] hover:text-ink">
               <Globe2 className="size-4" />
+            </a>
+          )}
+          {project.testingUrl && (
+            <a href={project.testingUrl} target="_blank" rel="noreferrer" aria-label="Open testing site" title={project.testingUrl} className="grid size-8 place-items-center rounded-lg text-ink-dim transition hover:bg-white/[0.06] hover:text-ink">
+              <FlaskConical className="size-4" />
             </a>
           )}
           {project.liveUrl && (

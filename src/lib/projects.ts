@@ -14,6 +14,7 @@ type Row = {
   stack_json: string;
   path: string;
   local_url: string | null;
+  testing_url: string | null;
   live_url: string | null;
   created_at: string;
   updated_at: string;
@@ -28,6 +29,7 @@ function fromRow(row: Row): Project {
     stack: JSON.parse(row.stack_json) as string[],
     path: row.path,
     localUrl: row.local_url,
+    testingUrl: row.testing_url,
     liveUrl: row.live_url,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -84,6 +86,7 @@ async function validate(input: ProjectInput) {
     stack,
     path: await resolveFolder(input.path),
     localUrl: optionalUrl(input.localUrl, "Local URL"),
+    testingUrl: optionalUrl(input.testingUrl, "Testing URL"),
     liveUrl: optionalUrl(input.liveUrl, "Live URL"),
   };
 }
@@ -112,8 +115,8 @@ export async function createProject(input: ProjectInput): Promise<Project> {
   const timestamp = now();
   db()
     .prepare(
-      `INSERT INTO projects (id, name, section, description, stack_json, path, local_url, live_url, created_at, updated_at)
-       VALUES (@id, @name, @section, @description, @stack, @path, @localUrl, @liveUrl, @createdAt, @updatedAt)`,
+      `INSERT INTO projects (id, name, section, description, stack_json, path, local_url, testing_url, live_url, created_at, updated_at)
+       VALUES (@id, @name, @section, @description, @stack, @path, @localUrl, @testingUrl, @liveUrl, @createdAt, @updatedAt)`,
     )
     .run({
       id,
@@ -123,6 +126,7 @@ export async function createProject(input: ProjectInput): Promise<Project> {
       stack: JSON.stringify(project.stack),
       path: project.path,
       localUrl: project.localUrl,
+      testingUrl: project.testingUrl,
       liveUrl: project.liveUrl,
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -139,7 +143,7 @@ export async function updateProject(id: string, input: ProjectInput): Promise<Pr
   db()
     .prepare(
       `UPDATE projects SET name = @name, section = @section, description = @description, stack_json = @stack,
-       path = @path, local_url = @localUrl, live_url = @liveUrl, updated_at = @updatedAt WHERE id = @id`,
+       path = @path, local_url = @localUrl, testing_url = @testingUrl, live_url = @liveUrl, updated_at = @updatedAt WHERE id = @id`,
     )
     .run({
       id,
@@ -149,6 +153,7 @@ export async function updateProject(id: string, input: ProjectInput): Promise<Pr
       stack: JSON.stringify(project.stack),
       path: project.path,
       localUrl: project.localUrl,
+      testingUrl: project.testingUrl,
       liveUrl: project.liveUrl,
       updatedAt: now(),
     });

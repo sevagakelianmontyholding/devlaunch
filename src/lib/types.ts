@@ -8,6 +8,7 @@ export type Project = {
   stack: string[];
   path: string;
   localUrl: string | null;
+  testingUrl: string | null;
   liveUrl: string | null;
   createdAt: string;
   updatedAt: string;
@@ -20,6 +21,7 @@ export type ProjectInput = {
   stack: string[];
   path: string;
   localUrl: string;
+  testingUrl: string;
   liveUrl: string;
 };
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Boxes, Code2, ExternalLink, FolderOpen, Globe2, Hammer, Link2, Pencil, Power, RotateCw, Trash2 } from "lucide-react";
+import { ArrowLeft, Boxes, Code2, ExternalLink, FlaskConical, FolderOpen, Globe2, Hammer, Link2, Pencil, Power, RotateCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { openProject, removeProject, runCompose } from "@/actions";
 import type { ComposeAction } from "@/lib/types";
@@ -174,8 +174,9 @@ export function ProjectView({ id }: { id: string }) {
             <CardTitle icon={<Link2 className="size-4" />}>Links</CardTitle>
             <div className="space-y-1.5">
               {localUrl && <LinkRow href={localUrl} icon={<Globe2 className="size-3.5" />} label="Local" />}
+              {project.testingUrl && <LinkRow href={project.testingUrl} icon={<FlaskConical className="size-3.5" />} label="Testing" />}
               {project.liveUrl && <LinkRow href={project.liveUrl} icon={<ExternalLink className="size-3.5" />} label="Live" />}
-              {!localUrl && !project.liveUrl && <p className="text-[12px] text-ink-faint">No URLs yet — add them by editing the project.</p>}
+              {!localUrl && !project.testingUrl && !project.liveUrl && <p className="text-[12px] text-ink-faint">No URLs yet — add them by editing the project.</p>}
             </div>
           </Card>
 

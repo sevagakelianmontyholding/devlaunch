@@ -14,6 +14,7 @@ const schema = `
     stack_json TEXT NOT NULL DEFAULT '[]',
     path TEXT NOT NULL UNIQUE,
     local_url TEXT,
+    testing_url TEXT,
     live_url TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -70,6 +71,8 @@ export function db() {
   connection.exec(schema);
   const columns = (connection.prepare("PRAGMA table_info(deployments)").all() as Array<{ name: string }>).map((c) => c.name);
   if (!columns.includes("platform")) connection.exec("ALTER TABLE deployments ADD COLUMN platform TEXT");
+  const projectColumns = (connection.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>).map((c) => c.name);
+  if (!projectColumns.includes("testing_url")) connection.exec("ALTER TABLE projects ADD COLUMN testing_url TEXT");
   globalState.devlaunchDb = connection;
   return connection;
 }

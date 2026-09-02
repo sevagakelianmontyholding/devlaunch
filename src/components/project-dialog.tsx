@@ -20,6 +20,7 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
   const [description, setDescription] = useState(project?.description ?? "");
   const [stack, setStack] = useState(project?.stack.join(", ") ?? "");
   const [localUrl, setLocalUrl] = useState(project?.localUrl ?? "");
+  const [testingUrl, setTestingUrl] = useState(project?.testingUrl ?? "");
   const [liveUrl, setLiveUrl] = useState(project?.liveUrl ?? "");
   const [browsing, setBrowsing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -45,6 +46,7 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
       description,
       stack: stack.split(",").map((item) => item.trim()).filter(Boolean),
       localUrl,
+      testingUrl,
       liveUrl,
     });
     setSaving(false);
@@ -86,9 +88,12 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
           <Input value={stack} onChange={(event) => setStack(event.target.value)} placeholder="Next.js, Postgres, Docker" />
         </Field>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <Field label="Local URL" hint="optional">
             <Input value={localUrl} onChange={(event) => setLocalUrl(event.target.value)} placeholder="http://my-app.localhost" inputMode="url" className="font-mono text-[12px]" />
+          </Field>
+          <Field label="Testing URL" hint="optional">
+            <Input value={testingUrl} onChange={(event) => setTestingUrl(event.target.value)} placeholder="https://test.my-app.com" inputMode="url" className="font-mono text-[12px]" />
           </Field>
           <Field label="Live URL" hint="optional">
             <Input value={liveUrl} onChange={(event) => setLiveUrl(event.target.value)} placeholder="https://my-app.com" inputMode="url" className="font-mono text-[12px]" />

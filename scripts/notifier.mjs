@@ -59,10 +59,18 @@ execFileSync("iconutil", ["-c", "icns", iconset, "-o", path.join(app, "Contents"
 // 3. Name it and hide it from the Dock.
 const plist = path.join(app, "Contents", "Info.plist");
 const set = (key, value, type = "string") => execFileSync("plutil", ["-replace", key, `-${type}`, value, plist]);
-set("CFBundleIdentifier", "com.devlaunch.notifier");
+set("CFBundleIdentifier", "com.devlaunch.notify");
 set("CFBundleName", "DevLaunch");
 set("CFBundleDisplayName", "DevLaunch");
 set("LSUIElement", "true", "bool");
+// The applet template ships an asset catalog whose AppIcon would override our
+// .icns; drop it and point the bundle at the icns explicitly.
+rmSync(path.join(app, "Contents", "Resources", "Assets.car"), { force: true });
+try { execFileSync("plutil", ["-remove", "CFBundleIconName", plist], { stdio: "ignore" }); } catch {}
+set("CFBundleIconFile", "applet");
+// Sign with an identifier matching the bundle id; Tahoe is strict about this.
+execFileSync("codesign", ["--force", "--sign", "-", "--identifier", "com.devlaunch.notify", app], { stdio: "ignore" });
+execFileSync("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister", ["-f", app], { stdio: "ignore" });
 execFileSync("touch", [app]);
 rmSync(work, { recursive: true, force: true });
 console.log(`Built ${app}`);

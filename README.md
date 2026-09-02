@@ -74,7 +74,7 @@ Extras per deployment: an optional **environment file** (stored encrypted on thi
 
 ## Notifications
 
-Settings → Notifications: a macOS notification and/or a Slack or Discord webhook whenever a deployment finishes or fails.
+Settings → Notifications: a macOS notification and/or a Slack or Discord webhook whenever a deployment finishes or fails. macOS notifications come from a small "DevLaunch" helper app (built into `data/` by `service:install`) so they show the DevLaunch icon; allow it the first time macOS asks.
 
 ## Everything else
 

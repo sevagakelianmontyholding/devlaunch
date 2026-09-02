@@ -9,7 +9,8 @@
     "start": "next start --hostname 127.0.0.1 --port 3000",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "service:install": "node scripts/service.mjs install",
+    "notifier": "node scripts/notifier.mjs",
+    "service:install": "node scripts/notifier.mjs && node scripts/service.mjs install",
     "service:uninstall": "node scripts/service.mjs uninstall"
   },
   "dependencies": {

@@ -20,7 +20,7 @@ function runTone(run: DeployRunSummary | null) {
 }
 
 export function Deployments({ projectId }: { projectId: string }) {
-  const { notify } = useStatus();
+  const { notify, refresh } = useStatus();
   const [deployments, setDeployments] = useState<Deployment[] | null>(null);
   const [editing, setEditing] = useState<Deployment | "new" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -28,7 +28,21 @@ export function Deployments({ projectId }: { projectId: string }) {
   const [logOpen, setLogOpen] = useState(true);
   const logRef = useRef<HTMLPreElement | null>(null);
 
-  const load = useCallback(async () => setDeployments(await getDeployments(projectId)), [projectId]);
+  const load = useCallback(async () => {
+    const list = await getDeployments(projectId);
+    setDeployments(list);
+    // Attach to a deployment already in progress (e.g. after opening the page mid-deploy).
+    const running = list.find((deployment) => deployment.lastRun?.status === "running");
+    if (running?.lastRun) {
+      setWatched((current) => {
+        if (current && current.status === "running") return current;
+        void fetch(`/api/deploy-runs/${running.lastRun!.id}`, { cache: "no-store" })
+          .then((response) => (response.ok ? response.json() : null))
+          .then((body: { run: DeployRun } | null) => body && setWatched(body.run));
+        return current;
+      });
+    }
+  }, [projectId]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
@@ -42,10 +56,13 @@ export function Deployments({ projectId }: { projectId: string }) {
       if (!response.ok) return;
       const { run } = (await response.json()) as { run: DeployRun };
       setWatched(run);
-      if (run.status !== "running") void load();
+      if (run.status !== "running") {
+        void load();
+        void refresh();
+      }
     }, 2000);
     return () => clearInterval(interval);
-  }, [watched, load]);
+  }, [watched, load, refresh]);
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
@@ -57,12 +74,14 @@ export function Deployments({ projectId }: { projectId: string }) {
     setWatched(result.data);
     setLogOpen(true);
     void load();
+    void refresh();
   };
 
   const stop = async (runId: string) => {
     const result = await stopDeploy(runId);
     if (!result.ok) notify("error", result.error);
     void load();
+    void refresh();
   };
 
   const showRun = async (run: DeployRunSummary) => {

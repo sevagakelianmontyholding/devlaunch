@@ -9,7 +9,7 @@ import { formatBytes } from "./format";
 import { getProject } from "./projects";
 import { getServerRow, sshArgs, writeKey, type ServerRow } from "./servers";
 import { killProcessGroup, newControl, run, shQuote, spawnTracked, stream, UserError, waitForExit, type ProcessControl } from "./shell";
-import type { DeployMode, DeployRun, DeployRunSummary, Deployment, DeploymentInput, UploadProgress } from "./types";
+import type { ActiveDeploy, DeployMode, DeployRun, DeployRunSummary, Deployment, DeploymentInput, UploadProgress } from "./types";
 
 const LOG_LIMIT = 200_000;
 const SAFE_IMAGE = /^[a-z0-9][a-z0-9._/-]*$/;
@@ -47,7 +47,7 @@ type RunRow = {
 
 // Active runs live in memory while they execute and are persisted on completion.
 const globalState = globalThis as unknown as {
-  devlaunchRuns?: Map<string, { run: DeployRun; control: ProcessControl }>;
+  devlaunchRuns?: Map<string, { run: DeployRun; control: ProcessControl; name: string }>;
 };
 const activeRuns = (globalState.devlaunchRuns ??= new Map());
 
@@ -219,8 +219,18 @@ export function getRun(id: string): DeployRun {
     log: row.log,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
+    phase: null,
     upload: null,
   };
+}
+
+export function activeDeploysByProject() {
+  const result: Record<string, ActiveDeploy> = {};
+  for (const { run, name } of activeRuns.values()) {
+    if (run.status !== "running") continue;
+    result[run.projectId] = { runId: run.id, deploymentId: run.deploymentId, deploymentName: name, phase: run.phase, upload: run.upload, startedAt: run.startedAt };
+  }
+  return result;
 }
 
 function persist(run: DeployRun) {
@@ -352,15 +362,18 @@ async function execute(run: DeployRun, config: Row, server: ServerRow, projectPa
     if (config.dockerfile) args.push("-f", await resolveDockerfile(projectPath, context, config.dockerfile));
     args.push(context);
 
+    run.phase = "building";
     step(`Building ${image} for ${platform}${config.platform ? "" : " (detected on the server)"}`);
     await stream("docker", args, { cwd: projectPath, timeoutMs: 30 * 60_000, onOutput: log, control });
 
+    run.phase = "uploading";
     step(`Uploading ${image} to ${server.name} over SSH`);
     await pushImage(run, image, server, control, log);
   }
 
   const lines = commandLines(config.commands);
   const remote = `cd ${shQuote(config.remote_path)} && ${lines.join(" && ")}`;
+  run.phase = "commands";
   step(`Running ${lines.length} command${lines.length === 1 ? "" : "s"} on ${server.name}`);
   for (const line of lines) log(`  $ ${line}\n`);
   await stream("ssh", [...sshArgs(server), remote], { timeoutMs: 20 * 60_000, onOutput: log, control });
@@ -385,10 +398,11 @@ export async function startRun(deploymentId: string): Promise<DeployRun> {
     log: `Deploying ${config.name} → ${server.name} (${server.username}@${server.host})\n`,
     startedAt: now(),
     finishedAt: null,
+    phase: null,
     upload: null,
   };
   const control = newControl();
-  activeRuns.set(run.id, { run, control });
+  activeRuns.set(run.id, { run, control, name: config.name });
 
   void (async () => {
     try {
@@ -400,6 +414,7 @@ export async function startRun(deploymentId: string): Promise<DeployRun> {
       run.log += control.cancelled ? "\n■ Cancelled\n" : `\n✖ ${error instanceof Error ? error.message : "Failed"}\n`;
     } finally {
       run.finishedAt = now();
+      run.phase = null;
       try {
         persist(run);
       } catch {

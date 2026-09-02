@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useNavigate } from "./navigate";
-import { Code2, ExternalLink, FileCode2, FolderKanban, Globe2, Plus, Power, Search } from "lucide-react";
+import { Code2, ExternalLink, FileCode2, FolderKanban, Globe2, Plus, Power, Rocket, Search } from "lucide-react";
+import { formatBytes } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { openProject, runCompose } from "@/actions";
-import type { Project, ProjectRuntime, Section } from "@/lib/types";
+import type { ActiveDeploy, Project, ProjectRuntime, Section } from "@/lib/types";
 import { PageHeader } from "./app-shell";
 import { ProjectDialog } from "./project-dialog";
 import { useStatus } from "./status-provider";
@@ -114,6 +115,7 @@ export function ProjectsView() {
                             key={project.id}
                             project={project}
                             runtime={status.runtimes[project.id]}
+                            deploy={status.activeDeploys[project.id]}
                             busy={busyId === project.id}
                             dockerAvailable={status.dockerAvailable}
                             onToggle={() => void toggleCompose(project, status.runtimes[project.id])}
@@ -137,6 +139,7 @@ export function ProjectsView() {
 function ProjectCard({
   project,
   runtime,
+  deploy,
   busy,
   dockerAvailable,
   onToggle,
@@ -144,6 +147,7 @@ function ProjectCard({
 }: {
   project: Project;
   runtime: ProjectRuntime | undefined;
+  deploy: ActiveDeploy | undefined;
   busy: boolean;
   dockerAvailable: boolean;
   onToggle: () => void;
@@ -194,6 +198,8 @@ function ProjectCard({
         </div>
       )}
 
+      {deploy && <DeployStrip deploy={deploy} />}
+
       <div className="mt-auto flex items-center justify-between gap-2 pt-4">
         <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-ink-faint">
           <FileCode2 className="size-3 shrink-0" />
@@ -226,5 +232,34 @@ function ProjectCard({
         </div>
       </div>
     </article>
+  );
+}
+
+const phaseLabel = { building: "Building image", uploading: "Uploading image", commands: "Running server commands" } as const;
+
+function DeployStrip({ deploy }: { deploy: ActiveDeploy }) {
+  const upload = deploy.phase === "uploading" ? deploy.upload : null;
+  return (
+    <div className="mt-3 rounded-lg border border-accent/25 bg-accent/[0.07] px-3 py-2 text-[11px]">
+      <div className="flex items-center gap-1.5">
+        <Rocket className="size-3 animate-pulse text-accent" />
+        <span className="font-medium text-accent">Deploying</span>
+        <span className="truncate text-ink-dim">· {deploy.deploymentName}</span>
+        <span className="ml-auto shrink-0 text-ink-dim">{deploy.phase ? phaseLabel[deploy.phase] : "Starting"}{upload ? ` ${upload.percent}%` : "…"}</span>
+      </div>
+      {upload && (
+        <>
+          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-line">
+            <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${upload.percent}%` }} />
+          </div>
+          <div className="mt-1 flex justify-between text-ink-faint">
+            <span>
+              {formatBytes(upload.readBytes)} of {formatBytes(upload.imageBytes)}
+            </span>
+            <span className="font-mono">{formatBytes(upload.bytesPerSecond)}/s</span>
+          </div>
+        </>
+      )}
+    </div>
   );
 }

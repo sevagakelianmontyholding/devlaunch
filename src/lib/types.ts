@@ -46,6 +46,7 @@ export type Status = {
   dataDir: string;
   projects: Project[];
   runtimes: Record<string, ProjectRuntime>;
+  activeDeploys: Record<string, ActiveDeploy>;
 };
 
 export type ComposeAction = "start" | "stop" | "restart" | "rebuild";
@@ -119,11 +120,23 @@ export type UploadProgress = {
   percent: number;
 };
 
+export type DeployPhase = "building" | "uploading" | "commands";
+
 export type DeployRun = DeployRunSummary & {
   deploymentId: string;
   projectId: string;
   log: string;
+  phase: DeployPhase | null;
   upload: UploadProgress | null;
+};
+
+export type ActiveDeploy = {
+  runId: string;
+  deploymentId: string;
+  deploymentName: string;
+  phase: DeployPhase | null;
+  upload: UploadProgress | null;
+  startedAt: string;
 };
 
 export type ActionResult<T = undefined> =

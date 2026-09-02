@@ -1,6 +1,7 @@
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { dataDir } from "./db";
+import { activeDeploysByProject } from "./deploy";
 import { listProjects } from "./projects";
 import { run } from "./shell";
 import type { Container, Project, ProjectRuntime, Status } from "./types";
@@ -81,5 +82,6 @@ export async function getStatus(): Promise<Status> {
     dataDir,
     projects,
     runtimes: Object.fromEntries(runtimes.map((runtime) => [runtime.id, runtime])),
+    activeDeploys: activeDeploysByProject(),
   };
 }

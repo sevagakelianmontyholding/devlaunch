@@ -32,17 +32,43 @@ export function Button({ variant = "secondary", size = "md", busy, icon, classNa
   );
 }
 
+// Small styled tooltip shown on hover and keyboard focus of the wrapped element.
+export function Tip({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
+  return (
+    <span className={cx("group/tip relative inline-flex", className)}>
+      {children}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-line-strong bg-panel-2 px-2 py-1 text-[11px] text-ink opacity-0 shadow-lg transition-opacity delay-100 group-hover/tip:opacity-100 group-focus-within/tip:opacity-100"
+      >
+        {label}
+      </span>
+    </span>
+  );
+}
+
 export function IconButton({ label, className, children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      className={cx("grid size-8 place-items-center rounded-lg text-ink-dim transition hover:bg-white/[0.06] hover:text-ink disabled:opacity-40", className)}
-      {...props}
-    >
-      {children}
-    </button>
+    <Tip label={label}>
+      <button
+        type="button"
+        aria-label={label}
+        className={cx("grid size-8 place-items-center rounded-lg text-ink-dim transition hover:bg-white/[0.06] hover:text-ink disabled:opacity-40", className)}
+        {...props}
+      >
+        {children}
+      </button>
+    </Tip>
+  );
+}
+
+export function IconLink({ label, href, children }: { label: string; href: string; children: ReactNode }) {
+  return (
+    <Tip label={label}>
+      <a href={href} target="_blank" rel="noreferrer" aria-label={label} className="grid size-8 place-items-center rounded-lg text-ink-dim transition hover:bg-white/[0.06] hover:text-ink">
+        {children}
+      </a>
+    </Tip>
   );
 }
 

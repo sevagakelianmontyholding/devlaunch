@@ -11,7 +11,7 @@ import { PageHeader } from "./app-shell";
 import { PinPrompt } from "./deployments";
 import { ProjectDialog } from "./project-dialog";
 import { useStatus } from "./status-provider";
-import { Button, Dialog, Dot, Empty, IconButton, Input, Monogram, Segmented, cx } from "./ui";
+import { Button, Dialog, Dot, Empty, IconButton, IconLink, Input, Monogram, Segmented, cx } from "./ui";
 
 type Filter = "all" | Section;
 type Sort = "name" | "running";
@@ -272,7 +272,7 @@ function ProjectCard({
         <div className="flex items-center gap-0.5">
           {(project.composeFile || project.commands.start) && (
             <IconButton
-              label={runtime?.running ? "Stop" : "Start"}
+              label={runtime?.running ? "Stop containers" : "Start containers"}
               onClick={onToggle}
               disabled={busy || Boolean(action) || (!project.commands.start && !dockerAvailable)}
               className={cx(runtime?.running ? "text-success hover:text-danger" : "text-accent")}
@@ -290,19 +290,19 @@ function ProjectCard({
             <Rocket className="size-4" />
           </IconButton>
           {localUrl && (
-            <a href={localUrl} target="_blank" rel="noreferrer" aria-label="Open local site" title={localUrl} className="grid size-8 place-items-center rounded-lg text-ink-dim transition hover:bg-white/[0.06] hover:text-ink">
+            <IconLink label={`Local · ${localUrl.replace(/^https?:\/\//, "")}`} href={localUrl}>
               <Globe2 className="size-4" />
-            </a>
+            </IconLink>
           )}
           {project.testingUrl && (
-            <a href={project.testingUrl} target="_blank" rel="noreferrer" aria-label="Open testing site" title={project.testingUrl} className="grid size-8 place-items-center rounded-lg text-ink-dim transition hover:bg-white/[0.06] hover:text-ink">
+            <IconLink label={`Testing · ${project.testingUrl.replace(/^https?:\/\//, "")}`} href={project.testingUrl}>
               <FlaskConical className="size-4" />
-            </a>
+            </IconLink>
           )}
           {project.liveUrl && (
-            <a href={project.liveUrl} target="_blank" rel="noreferrer" aria-label="Open live site" title={project.liveUrl} className="grid size-8 place-items-center rounded-lg text-ink-dim transition hover:bg-white/[0.06] hover:text-ink">
+            <IconLink label={`Live · ${project.liveUrl.replace(/^https?:\/\//, "")}`} href={project.liveUrl}>
               <ExternalLink className="size-4" />
-            </a>
+            </IconLink>
           )}
         </div>
       </div>

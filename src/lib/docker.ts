@@ -1,8 +1,12 @@
-import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { getProject, resolveCommand } from "./projects";
-import { run, shellEnv, UserError } from "./shell";
-import type { ComposeAction } from "./types";
+import { run, spawnTracked, UserError, killProcessGroup } from "./shell";
+import type { ActiveAction, ComposeAction, LocalRun } from "./types";
+
+const LOG_LIMIT = 100_000;
+const globalState = globalThis as unknown as { devlaunchLocalRuns?: Map<string, LocalRun> };
+const localRuns = (globalState.devlaunchLocalRuns ??= new Map());
 
 function requireProject(id: string) {
   const project = getProject(id);
@@ -19,36 +23,64 @@ export async function openInEditor(id: string) {
   }
 }
 
-// Runs a project command with the user's login shell inside the project folder,
-// so PATH, nvm, and aliases behave like a terminal would.
-function runInProject(projectPath: string, command: string, timeoutMs: number) {
-  return new Promise<string>((resolve, reject) => {
-    const child = spawn("/bin/zsh", ["-lc", command], { cwd: projectPath, env: shellEnv });
-    let output = "";
-    const timer = setTimeout(() => {
-      child.kill("SIGKILL");
-      reject(new UserError(`Timed out after ${Math.round(timeoutMs / 60_000)} minutes: ${command}`));
-    }, timeoutMs);
-    child.stdout.on("data", (chunk: Buffer) => (output += chunk.toString("utf8")));
-    child.stderr.on("data", (chunk: Buffer) => (output += chunk.toString("utf8")));
-    child.on("error", (error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      if (code === 0) resolve(output);
-      else reject(new UserError(output.trim().split("\n").at(-1) || `Command exited with code ${code}`));
-    });
-  });
+export function activeActionsByProject() {
+  const result: Record<string, ActiveAction> = {};
+  for (const localRun of localRuns.values()) {
+    if (localRun.status === "running") {
+      result[localRun.projectId] = { runId: localRun.id, action: localRun.action, command: localRun.command, startedAt: localRun.startedAt };
+    }
+  }
+  return result;
 }
 
-export async function composeAction(id: string, action: ComposeAction) {
+export function getLocalRun(id: string): LocalRun {
+  const localRun = localRuns.get(id);
+  if (!localRun) throw new UserError("That command is no longer tracked");
+  return { ...localRun };
+}
+
+// Starts a project command and returns immediately; the run streams its output
+// into memory so the UI can follow it, and completes in the background.
+export function startAction(id: string, action: ComposeAction): LocalRun {
   const project = requireProject(id);
   const command = resolveCommand(project, action);
   if (!command) throw new UserError(`No ${action} command configured. Set a compose file or a command in the project settings.`);
-  await runInProject(path.resolve(project.path), command, action === "rebuild" ? 15 * 60_000 : 3 * 60_000);
-  return command;
+  if (Object.values(activeActionsByProject()).some((active) => active.runId && localRuns.get(active.runId)?.projectId === id)) {
+    throw new UserError("Another command is still running for this project");
+  }
+
+  const localRun: LocalRun = {
+    id: randomUUID(),
+    projectId: id,
+    action,
+    command,
+    status: "running",
+    log: `$ ${command}\n`,
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+  };
+  localRuns.set(localRun.id, localRun);
+  const log = (chunk: string) => (localRun.log = (localRun.log + chunk).slice(-LOG_LIMIT));
+
+  // The user's login shell gives the command the same PATH, nvm, and aliases a terminal has.
+  const child = spawnTracked("/bin/zsh", ["-lc", command], undefined, path.resolve(project.path));
+  const timeoutMs = action === "rebuild" ? 15 * 60_000 : 3 * 60_000;
+  const timer = setTimeout(() => {
+    killProcessGroup(child, "SIGKILL");
+    log(`\n✖ Timed out after ${Math.round(timeoutMs / 60_000)} minutes\n`);
+  }, timeoutMs);
+  child.stdout?.on("data", (chunk: Buffer) => log(chunk.toString("utf8")));
+  child.stderr?.on("data", (chunk: Buffer) => log(chunk.toString("utf8")));
+  child.on("error", (error) => log(`\n✖ ${error.message}\n`));
+  child.on("close", (code) => {
+    clearTimeout(timer);
+    localRun.status = code === 0 ? "success" : "error";
+    localRun.finishedAt = new Date().toISOString();
+    log(code === 0 ? "\n✔ Done\n" : `\n✖ Exited with code ${code}\n`);
+    setTimeout(() => localRuns.delete(localRun.id), 10 * 60_000);
+  });
+
+  return { ...localRun };
 }
 
 export async function composeLogs(id: string, tail = 150) {

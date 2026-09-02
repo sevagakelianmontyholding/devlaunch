@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { ArrowLeft, Boxes, Code2, ExternalLink, FlaskConical, FolderOpen, Globe2, Hammer, Link2, Pencil, Power, RotateCw, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { openProject, removeProject, runCompose } from "@/actions";
-import type { ComposeAction } from "@/lib/types";
+import type { ComposeAction, LocalRun } from "@/lib/types";
 import { Deployments } from "./deployments";
 import { LogsPanel } from "./logs-panel";
 import { useNavigate } from "./navigate";
 import { ProjectDialog } from "./project-dialog";
 import { useStatus } from "./status-provider";
-import { Button, Card, CardTitle, Confirm, Dot, Empty, IconButton, Monogram } from "./ui";
+import { Button, Card, CardTitle, Confirm, Dot, Empty, IconButton, Monogram, cx } from "./ui";
 
 const confirmCopy: Record<Exclude<ComposeAction, "start">, { title: string; body: string; label: string }> = {
   stop: { title: "Stop containers?", body: "docker compose stop will stop every service of this project.", label: "Stop" },
@@ -26,6 +26,33 @@ export function ProjectView({ id }: { id: string }) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState<Exclude<ComposeAction, "start"> | "remove" | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [actionRun, setActionRun] = useState<LocalRun | null>(null);
+  const logRef = useRef<HTMLPreElement | null>(null);
+  const notifiedRef = useRef<string | null>(null);
+
+  // Follow a running start/stop/restart/rebuild until it finishes.
+  useEffect(() => {
+    if (!actionRun || actionRun.status !== "running") return;
+    const interval = setInterval(async () => {
+      const response = await fetch(`/api/local-runs/${actionRun.id}`, { cache: "no-store" });
+      if (!response.ok) return;
+      const { run } = (await response.json()) as { run: LocalRun };
+      setActionRun(run);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [actionRun]);
+
+  useEffect(() => {
+    logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
+  }, [actionRun?.log]);
+
+  useEffect(() => {
+    if (!actionRun || actionRun.status === "running" || notifiedRef.current === actionRun.id) return;
+    notifiedRef.current = actionRun.id;
+    const verb = { start: "Started", stop: "Stopped", restart: "Restarted", rebuild: "Rebuilt" }[actionRun.action];
+    notify(actionRun.status === "success" ? "success" : "error", actionRun.status === "success" ? `${verb} ${project?.name ?? "project"}` : `${actionRun.action} failed — see the output below`);
+    void refresh();
+  }, [actionRun, notify, refresh, project?.name]);
 
   if (!project) {
     return (
@@ -41,13 +68,16 @@ export function ProjectView({ id }: { id: string }) {
     );
   }
 
+  const actionRunning = actionRun?.status === "running";
+
   const compose = async (action: ComposeAction) => {
     setConfirming(null);
     setBusy(action);
     const result = await runCompose(project.id, action);
-    notify(result.ok ? "success" : "error", result.ok ? `${{ start: "Started", stop: "Stopped", restart: "Restarted", rebuild: "Rebuilt" }[action]} ${project.name} · ${result.data}` : result.error);
-    await refresh();
     setBusy(null);
+    if (!result.ok) return notify("error", result.error);
+    setActionRun(result.data);
+    void refresh();
   };
 
   const remove = async () => {
@@ -69,7 +99,7 @@ export function ProjectView({ id }: { id: string }) {
   };
 
   const localUrl = project.localUrl ?? (runtime?.ports[0] ? `http://localhost:${runtime.ports[0]}` : null);
-  const can = (action: ComposeAction) => Boolean(project.commands[action] || (project.composeFile && status.dockerAvailable));
+  const can = (action: ComposeAction) => !actionRunning && Boolean(project.commands[action] || (project.composeFile && status.dockerAvailable));
   const configured = Boolean(project.composeFile || project.commands.start);
 
   return (
@@ -122,6 +152,30 @@ export function ProjectView({ id }: { id: string }) {
           </button>
         )}
       </div>
+
+      {actionRun && (
+        <div className={cx("mt-3 rounded-lg border p-3", actionRun.status === "running" ? "border-warn/25 bg-warn/[0.05]" : actionRun.status === "success" ? "border-success/20 bg-success/[0.04]" : "border-danger/20 bg-danger/[0.05]")}>
+          <div className="flex items-center gap-2 text-[12px]">
+            <Dot tone={actionRun.status === "running" ? "warn" : actionRun.status === "success" ? "success" : "danger"} pulse={actionRun.status === "running"} />
+            <span className="font-medium">
+              {actionRun.status === "running"
+                ? { start: "Starting", stop: "Stopping", restart: "Restarting", rebuild: "Rebuilding" }[actionRun.action] + "…"
+                : actionRun.status === "success"
+                  ? { start: "Started", stop: "Stopped", restart: "Restarted", rebuild: "Rebuilt" }[actionRun.action]
+                  : `${actionRun.action} failed`}
+            </span>
+            <span className="truncate font-mono text-[11px] text-ink-dim">{actionRun.command}</span>
+            {actionRun.status !== "running" && (
+              <button type="button" onClick={() => setActionRun(null)} className="ml-auto text-[11px] text-ink-dim hover:text-ink">
+                Dismiss
+              </button>
+            )}
+          </div>
+          <pre ref={logRef} className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-black/40 p-3 font-mono text-[11px] leading-4 text-ink-dim">
+            {actionRun.log}
+          </pre>
+        </div>
+      )}
 
       {confirming && confirming !== "remove" && (
         <div className="mt-3 max-w-md">

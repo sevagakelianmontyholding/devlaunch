@@ -2,7 +2,7 @@
 
 import { changePassword, createFirstUser, requireUser, setDeployPin, signIn, signOut, verifyDeployPin } from "@/lib/auth";
 import { cancelRun, createDeployment, deleteDeployment, listDeployments, startRun, updateDeployment } from "@/lib/deploy";
-import { composeAction, openInEditor } from "@/lib/docker";
+import { openInEditor, startAction } from "@/lib/docker";
 import { createProject, deleteProject, pickFolder, updateProject } from "@/lib/projects";
 import { createServer, deleteServer, listServers, testServer, updateServer } from "@/lib/servers";
 import { UserError } from "@/lib/shell";
@@ -12,6 +12,7 @@ import type {
   DeployRun,
   Deployment,
   DeploymentInput,
+  LocalRun,
   Project,
   ProjectInput,
   Server,
@@ -71,8 +72,8 @@ export async function pickProjectFolder(): Promise<ActionResult<string>> {
 }
 
 // Docker / editor
-export async function runCompose(id: string, action: ComposeAction): Promise<ActionResult<string>> {
-  return attempt(() => composeAction(id, action));
+export async function runCompose(id: string, action: ComposeAction): Promise<ActionResult<LocalRun>> {
+  return attempt(() => startAction(id, action));
 }
 
 export async function openProject(id: string): Promise<ActionResult> {

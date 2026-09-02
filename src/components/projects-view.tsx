@@ -6,7 +6,7 @@ import { Code2, ExternalLink, FileCode2, FlaskConical, FolderKanban, Globe2, Plu
 import { formatBytes } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { openProject, runCompose } from "@/actions";
-import type { ActiveDeploy, Project, ProjectRuntime, Section } from "@/lib/types";
+import type { ActiveAction, ActiveDeploy, Project, ProjectRuntime, Section } from "@/lib/types";
 import { PageHeader } from "./app-shell";
 import { ProjectDialog } from "./project-dialog";
 import { useStatus } from "./status-provider";
@@ -46,7 +46,7 @@ export function ProjectsView() {
   const toggleCompose = async (project: Project, runtime: ProjectRuntime | undefined) => {
     setBusyId(project.id);
     const result = await runCompose(project.id, runtime?.running ? "stop" : "start");
-    notify(result.ok ? "success" : "error", result.ok ? `${runtime?.running ? "Stopped" : "Started"} ${project.name} · ${result.data}` : result.error);
+    if (!result.ok) notify("error", result.error);
     await refresh();
     setBusyId(null);
   };
@@ -116,6 +116,7 @@ export function ProjectsView() {
                             project={project}
                             runtime={status.runtimes[project.id]}
                             deploy={status.activeDeploys[project.id]}
+                            action={status.activeActions[project.id]}
                             busy={busyId === project.id}
                             dockerAvailable={status.dockerAvailable}
                             onToggle={() => void toggleCompose(project, status.runtimes[project.id])}
@@ -140,6 +141,7 @@ function ProjectCard({
   project,
   runtime,
   deploy,
+  action,
   busy,
   dockerAvailable,
   onToggle,
@@ -148,6 +150,7 @@ function ProjectCard({
   project: Project;
   runtime: ProjectRuntime | undefined;
   deploy: ActiveDeploy | undefined;
+  action: ActiveAction | undefined;
   busy: boolean;
   dockerAvailable: boolean;
   onToggle: () => void;
@@ -199,6 +202,7 @@ function ProjectCard({
       )}
 
       {deploy && <DeployStrip deploy={deploy} />}
+      {action && !deploy && <ActionStrip action={action} />}
 
       <div className="mt-auto flex items-center justify-between gap-2 pt-4">
         <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-ink-faint">
@@ -210,10 +214,10 @@ function ProjectCard({
             <IconButton
               label={runtime?.running ? "Stop" : "Start"}
               onClick={onToggle}
-              disabled={busy || (!project.commands.start && !dockerAvailable)}
+              disabled={busy || Boolean(action) || (!project.commands.start && !dockerAvailable)}
               className={cx(runtime?.running ? "text-success hover:text-danger" : "text-accent")}
             >
-              <Power className={cx("size-4", busy && "animate-pulse")} />
+              <Power className={cx("size-4", (busy || action) && "animate-pulse")} />
             </IconButton>
           )}
           <IconButton label="Open in VS Code" onClick={onOpen}>
@@ -265,6 +269,20 @@ function DeployStrip({ deploy }: { deploy: ActiveDeploy }) {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+const actionLabel = { start: "Starting", stop: "Stopping", restart: "Restarting", rebuild: "Rebuilding" } as const;
+
+function ActionStrip({ action }: { action: ActiveAction }) {
+  return (
+    <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-warn/25 bg-warn/[0.07] px-3 py-2 text-[11px]">
+      <Dot tone="warn" pulse />
+      <span className="font-medium text-warn">{actionLabel[action.action]}…</span>
+      <span className="truncate font-mono text-ink-dim" title={action.command}>
+        {action.command}
+      </span>
     </div>
   );
 }

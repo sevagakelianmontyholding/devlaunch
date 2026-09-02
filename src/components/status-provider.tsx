@@ -37,7 +37,7 @@ export function StatusProvider({ initial, children }: { initial: Status; childre
   }, []);
 
   // Poll faster while a deployment is running so cards show live progress.
-  const deploying = Object.keys(status.activeDeploys).length > 0;
+  const deploying = Object.keys(status.activeDeploys).length > 0 || Object.keys(status.activeActions).length > 0;
   useEffect(() => {
     const interval = setInterval(() => void refresh(), deploying ? 2_000 : 10_000);
     const onFocus = () => void refresh();

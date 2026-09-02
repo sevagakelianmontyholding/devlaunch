@@ -46,6 +46,24 @@ export type ProjectRuntime = {
   ports: number[];
 };
 
+export type LocalRun = {
+  id: string;
+  projectId: string;
+  action: ComposeAction;
+  command: string;
+  status: RunStatus;
+  log: string;
+  startedAt: string;
+  finishedAt: string | null;
+};
+
+export type ActiveAction = {
+  runId: string;
+  action: ComposeAction;
+  command: string;
+  startedAt: string;
+};
+
 export type SessionUser = {
   id: string;
   username: string;
@@ -59,6 +77,7 @@ export type Status = {
   projects: Project[];
   runtimes: Record<string, ProjectRuntime>;
   activeDeploys: Record<string, ActiveDeploy>;
+  activeActions: Record<string, ActiveAction>;
   user: SessionUser;
 };
 

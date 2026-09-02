@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useNavigate } from "./navigate";
-import { Code2, ExternalLink, FileCode2, FlaskConical, FolderKanban, Globe2, Plus, Power, Rocket, Search, TerminalSquare } from "lucide-react";
+import { Code2, ExternalLink, FlaskConical, FolderKanban, Globe2, Plus, Power, Rocket, Search, TerminalSquare } from "lucide-react";
 import { formatBytes } from "@/lib/format";
 import { useMemo, useState } from "react";
 import { openProject, openProjectTerminal, runCompose } from "@/actions";
@@ -212,11 +212,7 @@ function ProjectCard({
       {deploy && <DeployStrip deploy={deploy} />}
       {action && !deploy && <ActionStrip action={action} />}
 
-      <div className="mt-auto flex items-center justify-between gap-2 pt-4">
-        <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-ink-faint">
-          <FileCode2 className="size-3 shrink-0" />
-          <span className="truncate font-mono">{project.composeFile ?? (project.commands.start ? "custom commands" : "not configured")}</span>
-        </span>
+      <div className="mt-auto flex items-center justify-end gap-2 pt-4">
         <div className="flex items-center gap-0.5">
           {(project.composeFile || project.commands.start) && (
             <IconButton

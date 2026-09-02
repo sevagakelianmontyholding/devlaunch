@@ -83,6 +83,7 @@ export type Deployment = {
   dockerfile: string | null;
   remotePath: string;
   commands: string;
+  platform: string | null;
   createdAt: string;
   updatedAt: string;
   lastRun: DeployRunSummary | null;
@@ -98,6 +99,7 @@ export type DeploymentInput = {
   dockerfile: string;
   remotePath: string;
   commands: string;
+  platform: string;
 };
 
 export type RunStatus = "running" | "success" | "error" | "cancelled";

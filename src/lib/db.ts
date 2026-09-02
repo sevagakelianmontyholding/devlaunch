@@ -40,6 +40,7 @@ const schema = `
     dockerfile TEXT,
     remote_path TEXT NOT NULL,
     commands TEXT NOT NULL,
+    platform TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
@@ -67,6 +68,8 @@ export function db() {
   connection.pragma("journal_mode = WAL");
   connection.pragma("foreign_keys = ON");
   connection.exec(schema);
+  const columns = (connection.prepare("PRAGMA table_info(deployments)").all() as Array<{ name: string }>).map((c) => c.name);
+  if (!columns.includes("platform")) connection.exec("ALTER TABLE deployments ADD COLUMN platform TEXT");
   globalState.devlaunchDb = connection;
   return connection;
 }

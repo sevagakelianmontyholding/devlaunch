@@ -15,6 +15,7 @@ const LOG_LIMIT = 200_000;
 const SAFE_IMAGE = /^[a-z0-9][a-z0-9._/-]*$/;
 const SAFE_TAG = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const SAFE_RELATIVE = /^[A-Za-z0-9._/-]+$/;
+const SAFE_PLATFORM = /^linux\/(amd64|arm64|arm\/v7|386)$/;
 
 type Row = {
   id: string;
@@ -29,6 +30,7 @@ type Row = {
   dockerfile: string | null;
   remote_path: string;
   commands: string;
+  platform: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -79,6 +81,7 @@ function fromRow(row: Row): Deployment {
     dockerfile: row.dockerfile,
     remotePath: row.remote_path,
     commands: row.commands,
+    platform: row.platform,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     lastRun: lastRunFor(row.id),
@@ -125,13 +128,15 @@ function validate(input: DeploymentInput) {
   const imageTag = input.imageTag.trim() || null;
   const buildContext = input.buildContext.trim() || null;
   const dockerfile = input.dockerfile.trim() || null;
+  const platform = input.platform.trim() || null;
+  if (platform && !SAFE_PLATFORM.test(platform)) throw new UserError("Choose a supported target platform");
   if (input.mode === "image") {
     if (!imageName || !SAFE_IMAGE.test(imageName)) throw new UserError("Enter a valid lowercase image name");
     if (imageTag && !SAFE_TAG.test(imageTag)) throw new UserError("Enter a valid image tag");
     if (buildContext && !SAFE_RELATIVE.test(buildContext)) throw new UserError("The build context must be a relative folder");
     if (dockerfile && !SAFE_RELATIVE.test(dockerfile)) throw new UserError("The Dockerfile must be a relative path");
   }
-  return { name, mode: input.mode, remotePath, commands, imageName, imageTag, buildContext, dockerfile };
+  return { name, mode: input.mode, remotePath, commands, imageName, imageTag, buildContext, dockerfile, platform };
 }
 
 export function createDeployment(projectId: string, input: DeploymentInput): Deployment {
@@ -142,8 +147,8 @@ export function createDeployment(projectId: string, input: DeploymentInput): Dep
   const timestamp = now();
   db()
     .prepare(
-      `INSERT INTO deployments (id, project_id, server_id, name, mode, image_name, image_tag, build_context, dockerfile, remote_path, commands, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO deployments (id, project_id, server_id, name, mode, image_name, image_tag, build_context, dockerfile, remote_path, commands, platform, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -157,6 +162,7 @@ export function createDeployment(projectId: string, input: DeploymentInput): Dep
       deployment.dockerfile,
       deployment.remotePath,
       deployment.commands,
+      deployment.platform,
       timestamp,
       timestamp,
     );
@@ -170,7 +176,7 @@ export function updateDeployment(id: string, input: DeploymentInput): Deployment
   db()
     .prepare(
       `UPDATE deployments SET server_id = ?, name = ?, mode = ?, image_name = ?, image_tag = ?, build_context = ?,
-       dockerfile = ?, remote_path = ?, commands = ?, updated_at = ? WHERE id = ?`,
+       dockerfile = ?, remote_path = ?, commands = ?, platform = ?, updated_at = ? WHERE id = ?`,
     )
     .run(
       server.id,
@@ -182,6 +188,7 @@ export function updateDeployment(id: string, input: DeploymentInput): Deployment
       deployment.dockerfile,
       deployment.remotePath,
       deployment.commands,
+      deployment.platform,
       now(),
       id,
     );
@@ -314,6 +321,18 @@ async function pushImage(run: DeployRun, image: string, server: ServerRow, contr
   }
 }
 
+// The image must match the server's CPU architecture, otherwise the container
+// starts and immediately dies with an exec format error.
+async function detectPlatform(server: ServerRow, control: ProcessControl) {
+  let output = "";
+  await stream("ssh", [...sshArgs(server), "uname -m"], { timeoutMs: 30_000, onOutput: (chunk) => (output += chunk), control });
+  const arch = output.trim().split("\n").at(-1) ?? "";
+  if (arch === "x86_64" || arch === "amd64") return "linux/amd64";
+  if (arch === "aarch64" || arch === "arm64") return "linux/arm64";
+  if (arch.startsWith("armv7")) return "linux/arm/v7";
+  throw new Error(`Could not map the server architecture "${arch}" to a Docker platform; set it on the deployment`);
+}
+
 async function run_(command: string, args: string[]) {
   const { stdout } = await run(command, args, { timeoutMs: 30_000 });
   return stdout;
@@ -328,11 +347,12 @@ async function execute(run: DeployRun, config: Row, server: ServerRow, projectPa
     const image = `${config.image_name}:${config.image_tag || "latest"}`;
     const context = path.resolve(projectPath, config.build_context || ".");
     if (!context.startsWith(projectPath)) throw new Error("The build context must stay inside the project folder");
-    const args = ["build", "-t", image];
+    const platform = config.platform ?? (await detectPlatform(server, control));
+    const args = ["build", "--platform", platform, "-t", image];
     if (config.dockerfile) args.push("-f", await resolveDockerfile(projectPath, context, config.dockerfile));
     args.push(context);
 
-    step(`Building ${image}`);
+    step(`Building ${image} for ${platform}${config.platform ? "" : " (detected on the server)"}`);
     await stream("docker", args, { cwd: projectPath, timeoutMs: 30 * 60_000, onOutput: log, control });
 
     step(`Uploading ${image} to ${server.name} over SSH`);

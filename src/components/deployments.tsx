@@ -142,6 +142,7 @@ export function Deployments({ projectId }: { projectId: string }) {
                   {deployment.mode === "image" && (
                     <span className="font-mono">
                       {deployment.imageName}:{deployment.imageTag || "latest"}
+                      {deployment.platform && ` · ${deployment.platform}`}
                     </span>
                   )}
                   <button
@@ -219,6 +220,7 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
   const [imageTag, setImageTag] = useState(deployment?.imageTag ?? "latest");
   const [buildContext, setBuildContext] = useState(deployment?.buildContext ?? "");
   const [dockerfile, setDockerfile] = useState(deployment?.dockerfile ?? "");
+  const [platform, setPlatform] = useState(deployment?.platform ?? "");
   const [remotePath, setRemotePath] = useState(deployment?.remotePath ?? "");
   const [commands, setCommands] = useState(deployment?.commands ?? "");
   const [saving, setSaving] = useState(false);
@@ -237,7 +239,7 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
     event.preventDefault();
     setSaving(true);
     setError(null);
-    const result = await saveDeployment(projectId, deployment?.id ?? null, { serverId, name, mode, imageName, imageTag, buildContext, dockerfile, remotePath, commands });
+    const result = await saveDeployment(projectId, deployment?.id ?? null, { serverId, name, mode, imageName, imageTag, buildContext, dockerfile, remotePath, commands, platform });
     setSaving(false);
     if (!result.ok) return setError(result.error);
     onSaved();
@@ -294,6 +296,14 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
             </Field>
             <Field label="Dockerfile" hint="relative to the context">
               <Input value={dockerfile} onChange={(event) => setDockerfile(event.target.value)} placeholder="Dockerfile" className={mono} />
+            </Field>
+            <Field label="Target platform" hint="the server's CPU, not this Mac's" className="sm:col-span-2">
+              <Select value={platform} onChange={(event) => setPlatform(event.target.value)}>
+                <option value="">Detect from the server (recommended)</option>
+                <option value="linux/amd64">linux/amd64 — most VPS (Intel/AMD)</option>
+                <option value="linux/arm64">linux/arm64 — ARM servers (Graviton, Ampere, Apple)</option>
+                <option value="linux/arm/v7">linux/arm/v7 — 32-bit ARM</option>
+              </Select>
             </Field>
           </div>
         )}

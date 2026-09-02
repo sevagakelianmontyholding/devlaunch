@@ -64,6 +64,14 @@ export type ActiveAction = {
   startedAt: string;
 };
 
+export type TerminalApp = "terminal" | "iterm" | "warp" | "ghostty" | "kitty" | "alacritty" | "termius" | "custom";
+
+export type TerminalSettings = {
+  app: TerminalApp;
+  customCommand: string;
+  installed: Array<{ id: Exclude<TerminalApp, "custom">; label: string; note: string | null }>;
+};
+
 export type SessionUser = {
   id: string;
   username: string;
@@ -78,6 +86,7 @@ export type Status = {
   runtimes: Record<string, ProjectRuntime>;
   activeDeploys: Record<string, ActiveDeploy>;
   activeActions: Record<string, ActiveAction>;
+  terminal: TerminalSettings;
   user: SessionUser;
 };
 

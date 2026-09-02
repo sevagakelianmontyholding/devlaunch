@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useNavigate } from "./navigate";
-import { Code2, ExternalLink, FileCode2, FlaskConical, FolderKanban, Globe2, Plus, Power, Rocket, Search } from "lucide-react";
+import { Code2, ExternalLink, FileCode2, FlaskConical, FolderKanban, Globe2, Plus, Power, Rocket, Search, TerminalSquare } from "lucide-react";
 import { formatBytes } from "@/lib/format";
 import { useMemo, useState } from "react";
-import { openProject, runCompose } from "@/actions";
+import { openProject, openProjectTerminal, runCompose } from "@/actions";
 import type { ActiveAction, ActiveDeploy, Project, ProjectRuntime, Section } from "@/lib/types";
 import { PageHeader } from "./app-shell";
 import { ProjectDialog } from "./project-dialog";
@@ -53,6 +53,11 @@ export function ProjectsView() {
 
   const open = async (project: Project) => {
     const result = await openProject(project.id);
+    if (!result.ok) notify("error", result.error);
+  };
+
+  const openTerminal = async (project: Project) => {
+    const result = await openProjectTerminal(project.id);
     if (!result.ok) notify("error", result.error);
   };
 
@@ -121,6 +126,7 @@ export function ProjectsView() {
                             dockerAvailable={status.dockerAvailable}
                             onToggle={() => void toggleCompose(project, status.runtimes[project.id])}
                             onOpen={() => void open(project)}
+                            onTerminal={() => void openTerminal(project)}
                           />
                         ))}
                       </div>
@@ -146,6 +152,7 @@ function ProjectCard({
   dockerAvailable,
   onToggle,
   onOpen,
+  onTerminal,
 }: {
   project: Project;
   runtime: ProjectRuntime | undefined;
@@ -155,6 +162,7 @@ function ProjectCard({
   dockerAvailable: boolean;
   onToggle: () => void;
   onOpen: () => void;
+  onTerminal: () => void;
 }) {
   const navigate = useNavigate();
   const state = !runtime?.exists
@@ -222,6 +230,9 @@ function ProjectCard({
           )}
           <IconButton label="Open in VS Code" onClick={onOpen}>
             <Code2 className="size-4" />
+          </IconButton>
+          <IconButton label="Open in terminal" onClick={onTerminal}>
+            <TerminalSquare className="size-4" />
           </IconButton>
           {localUrl && (
             <a href={localUrl} target="_blank" rel="noreferrer" aria-label="Open local site" title={localUrl} className="grid size-8 place-items-center rounded-lg text-ink-dim transition hover:bg-white/[0.06] hover:text-ink">

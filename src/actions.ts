@@ -2,7 +2,8 @@
 
 import { changePassword, createFirstUser, requireUser, setDeployPin, signIn, signOut, verifyDeployPin } from "@/lib/auth";
 import { cancelRun, createDeployment, deleteDeployment, listDeployments, startRun, updateDeployment } from "@/lib/deploy";
-import { openInEditor, startAction } from "@/lib/docker";
+import { openInEditor, openInTerminal, startAction } from "@/lib/docker";
+import { saveTerminalSettings } from "@/lib/terminal";
 import { createProject, deleteProject, pickFolder, updateProject } from "@/lib/projects";
 import { createServer, deleteServer, listServers, testServer, updateServer } from "@/lib/servers";
 import { UserError } from "@/lib/shell";
@@ -18,6 +19,8 @@ import type {
   Server,
   ServerInput,
   SessionUser,
+  TerminalApp,
+  TerminalSettings,
 } from "@/lib/types";
 
 async function attempt<T>(work: (user: SessionUser) => Promise<T> | T, options: { public?: boolean } = {}): Promise<ActionResult<T>> {
@@ -81,6 +84,17 @@ export async function openProject(id: string): Promise<ActionResult> {
     await openInEditor(id);
     return undefined;
   });
+}
+
+export async function openProjectTerminal(id: string): Promise<ActionResult> {
+  return attempt(async () => {
+    await openInTerminal(id);
+    return undefined;
+  });
+}
+
+export async function updateTerminalSettings(app: TerminalApp, customCommand: string): Promise<ActionResult<TerminalSettings>> {
+  return attempt(() => saveTerminalSettings(app, customCommand));
 }
 
 // Servers

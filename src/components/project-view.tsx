@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Boxes, Code2, ExternalLink, FlaskConical, FolderOpen, Globe2, Hammer, Link2, Pencil, Power, RotateCw, Trash2 } from "lucide-react";
+import { ArrowLeft, Boxes, Code2, ExternalLink, FlaskConical, FolderOpen, Globe2, Hammer, Link2, Pencil, Power, RotateCw, TerminalSquare, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { openProject, removeProject, runCompose } from "@/actions";
+import { openProject, openProjectTerminal, removeProject, runCompose } from "@/actions";
 import type { ComposeAction, LocalRun } from "@/lib/types";
 import { Deployments } from "./deployments";
 import { LogsPanel } from "./logs-panel";
@@ -98,6 +98,11 @@ export function ProjectView({ id }: { id: string }) {
     if (!result.ok) notify("error", result.error);
   };
 
+  const openTerminal = async () => {
+    const result = await openProjectTerminal(project.id);
+    if (!result.ok) notify("error", result.error);
+  };
+
   const localUrl = project.localUrl ?? (runtime?.ports[0] ? `http://localhost:${runtime.ports[0]}` : null);
   const can = (action: ComposeAction) => !actionRunning && Boolean(project.commands[action] || (project.composeFile && status.dockerAvailable));
   const configured = Boolean(project.composeFile || project.commands.start);
@@ -130,6 +135,9 @@ export function ProjectView({ id }: { id: string }) {
       <div className="mt-5 flex flex-wrap gap-2">
         <Button icon={<Code2 className="size-4" />} onClick={open}>
           Code
+        </Button>
+        <Button icon={<TerminalSquare className="size-4" />} onClick={openTerminal}>
+          Terminal
         </Button>
         {runtime?.running ? (
           <Button icon={<Power className="size-4 text-danger" />} onClick={() => setConfirming("stop")} disabled={!can("stop")} busy={busy === "stop"}>

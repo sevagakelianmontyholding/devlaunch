@@ -71,6 +71,10 @@ const schema = `
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     expires_at TEXT NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
   CREATE INDEX IF NOT EXISTS idx_deployments_project ON deployments(project_id);
   CREATE INDEX IF NOT EXISTS idx_runs_deployment ON deploy_runs(deployment_id, started_at);
 `;

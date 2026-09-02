@@ -3,6 +3,7 @@ import path from "node:path";
 import { dataDir } from "./db";
 import { activeDeploysByProject } from "./deploy";
 import { activeActionsByProject } from "./docker";
+import { getTerminalSettings } from "./terminal";
 import { listProjects } from "./projects";
 import { run } from "./shell";
 import type { Container, Project, ProjectRuntime, SessionUser, Status } from "./types";
@@ -74,6 +75,7 @@ export async function getStatus(user: SessionUser): Promise<Status> {
     runtimes: Object.fromEntries(runtimes.map((runtime) => [runtime.id, runtime])),
     activeDeploys: activeDeploysByProject(),
     activeActions: activeActionsByProject(),
+    terminal: getTerminalSettings(),
     user,
   };
 }

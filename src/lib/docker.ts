@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { getProject, resolveCommand } from "./projects";
 import { run, spawnTracked, UserError, killProcessGroup } from "./shell";
+import { openFolderInTerminal } from "./terminal";
 import type { ActiveAction, ComposeAction, LocalRun } from "./types";
 
 const LOG_LIMIT = 100_000;
@@ -21,6 +22,11 @@ export async function openInEditor(id: string) {
   } else {
     await run("code", [project.path]);
   }
+}
+
+export async function openInTerminal(id: string) {
+  const project = requireProject(id);
+  await openFolderInTerminal(project.path);
 }
 
 export function activeActionsByProject() {

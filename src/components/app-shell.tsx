@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Boxes, FolderKanban, Settings, Zap } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Boxes, FolderKanban, LogOut, Settings, UserRound, Zap } from "lucide-react";
+import { logout } from "@/actions";
 import type { ReactNode } from "react";
 import { useStatus } from "./status-provider";
-import { Dot, cx } from "./ui";
+import { Dot, IconButton, cx } from "./ui";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { status, online } = useStatus();
   const runningContainers = Object.values(status.runtimes).reduce(
     (total, runtime) => total + runtime.containers.filter((container) => container.state === "running").length,
@@ -55,6 +57,21 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="mt-auto hidden lg:block">
+          <div className="mb-2 flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12px]">
+            <UserRound className="size-3.5 text-ink-dim" />
+            <span className="truncate text-ink">{status.user.username}</span>
+            <IconButton
+              label="Sign out"
+              className="ml-auto size-7"
+              onClick={async () => {
+                await logout();
+                router.push("/");
+                router.refresh();
+              }}
+            >
+              <LogOut className="size-3.5" />
+            </IconButton>
+          </div>
           <div className="rounded-lg border border-line bg-bg p-3">
             <div className="flex items-center gap-2 text-[12px] font-medium">
               <Zap className="size-3.5 text-accent" /> This Mac

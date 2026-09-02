@@ -54,6 +54,18 @@ const schema = `
     started_at TEXT NOT NULL,
     finished_at TEXT
   );
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    pin_hash TEXT,
+    created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TEXT NOT NULL
+  );
   CREATE INDEX IF NOT EXISTS idx_deployments_project ON deployments(project_id);
   CREATE INDEX IF NOT EXISTS idx_runs_deployment ON deploy_runs(deployment_id, started_at);
 `;

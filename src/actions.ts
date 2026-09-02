@@ -1,5 +1,6 @@
 "use server";
 
+import { changePassword, createFirstUser, requireUser, setDeployPin, signIn, signOut, verifyDeployPin } from "@/lib/auth";
 import { cancelRun, createDeployment, deleteDeployment, listDeployments, startRun, updateDeployment } from "@/lib/deploy";
 import { composeAction, openInEditor } from "@/lib/docker";
 import { createProject, deleteProject, pickFolder, updateProject } from "@/lib/projects";
@@ -15,16 +16,45 @@ import type {
   ProjectInput,
   Server,
   ServerInput,
+  SessionUser,
 } from "@/lib/types";
 
-async function attempt<T>(work: () => Promise<T> | T): Promise<ActionResult<T>> {
+async function attempt<T>(work: (user: SessionUser) => Promise<T> | T, options: { public?: boolean } = {}): Promise<ActionResult<T>> {
   try {
-    return { ok: true, data: await work() };
+    const user = options.public ? ({} as SessionUser) : await requireUser();
+    return { ok: true, data: await work(user) };
   } catch (error) {
     if (error instanceof UserError) return { ok: false, error: error.message };
     console.error(error);
     return { ok: false, error: error instanceof Error ? error.message : "Something went wrong" };
   }
+}
+
+// Account
+export async function setupAccount(username: string, password: string): Promise<ActionResult<SessionUser>> {
+  return attempt(() => createFirstUser(username, password), { public: true });
+}
+
+export async function login(username: string, password: string): Promise<ActionResult<SessionUser>> {
+  return attempt(() => signIn(username, password), { public: true });
+}
+
+export async function logout(): Promise<ActionResult> {
+  return attempt(async () => {
+    await signOut();
+    return undefined;
+  });
+}
+
+export async function updatePassword(currentPassword: string, nextPassword: string): Promise<ActionResult> {
+  return attempt((user) => {
+    changePassword(user.id, currentPassword, nextPassword);
+    return undefined;
+  });
+}
+
+export async function updateDeployPin(password: string, pin: string | null): Promise<ActionResult<SessionUser>> {
+  return attempt((user) => setDeployPin(user.id, password, pin));
 }
 
 // Projects
@@ -57,6 +87,7 @@ export async function openProject(id: string): Promise<ActionResult> {
 
 // Servers
 export async function getServers(): Promise<Server[]> {
+  await requireUser();
   return listServers();
 }
 
@@ -74,6 +105,7 @@ export async function checkServer(id: string): Promise<ActionResult<string>> {
 
 // Deployments
 export async function getDeployments(projectId: string): Promise<Deployment[]> {
+  await requireUser();
   return listDeployments(projectId);
 }
 
@@ -89,8 +121,11 @@ export async function removeDeployment(id: string): Promise<ActionResult<Deploym
   return attempt(() => deleteDeployment(id));
 }
 
-export async function deploy(deploymentId: string): Promise<ActionResult<DeployRun>> {
-  return attempt(() => startRun(deploymentId));
+export async function deploy(deploymentId: string, pin?: string): Promise<ActionResult<DeployRun>> {
+  return attempt((user) => {
+    verifyDeployPin(user.id, pin);
+    return startRun(deploymentId);
+  });
 }
 
 export async function stopDeploy(runId: string): Promise<ActionResult> {

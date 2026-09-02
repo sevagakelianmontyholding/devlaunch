@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppShell } from "@/components/app-shell";
+import { LoginScreen } from "@/components/login-screen";
+import { currentUser, userCount } from "@/lib/auth";
 import { StatusProvider } from "@/components/status-provider";
 import { getStatus } from "@/lib/status";
 import "./globals.css";
@@ -16,13 +18,17 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const status = await getStatus();
+  const user = await currentUser();
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>
-        <StatusProvider initial={status}>
-          <AppShell>{children}</AppShell>
-        </StatusProvider>
+        {user ? (
+          <StatusProvider initial={await getStatus(user)}>
+            <AppShell>{children}</AppShell>
+          </StatusProvider>
+        ) : (
+          <LoginScreen firstRun={userCount() === 0} />
+        )}
       </body>
     </html>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, ChevronUp, Pencil, Plus, Rocket, Server, Square, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, KeyRound, Pencil, Plus, Rocket, Server, Square, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deploy, getDeployments, getServers, removeDeployment, saveDeployment, stopDeploy } from "@/actions";
 import type { DeployMode, DeployRun, DeployRunSummary, Deployment, Server as DeployServer } from "@/lib/types";
@@ -20,7 +20,8 @@ function runTone(run: DeployRunSummary | null) {
 }
 
 export function Deployments({ projectId }: { projectId: string }) {
-  const { notify, refresh } = useStatus();
+  const { status, notify, refresh } = useStatus();
+  const [pinFor, setPinFor] = useState<Deployment | null>(null);
   const [deployments, setDeployments] = useState<Deployment[] | null>(null);
   const [editing, setEditing] = useState<Deployment | "new" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -68,13 +69,23 @@ export function Deployments({ projectId }: { projectId: string }) {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
   }, [watched?.log]);
 
-  const start = async (deployment: Deployment) => {
-    const result = await deploy(deployment.id);
-    if (!result.ok) return notify("error", result.error);
+  const start = async (deployment: Deployment, pin?: string): Promise<string | null> => {
+    const result = await deploy(deployment.id, pin);
+    if (!result.ok) {
+      if (pin === undefined) notify("error", result.error);
+      return result.error;
+    }
+    setPinFor(null);
     setWatched(result.data);
     setLogOpen(true);
     void load();
     void refresh();
+    return null;
+  };
+
+  const requestDeploy = (deployment: Deployment) => {
+    if (status.user.hasPin) setPinFor(deployment);
+    else void start(deployment);
   };
 
   const stop = async (runId: string) => {
@@ -150,7 +161,7 @@ export function Deployments({ projectId }: { projectId: string }) {
                         Stop
                       </Button>
                     ) : (
-                      <Button size="sm" variant="primary" icon={<Rocket className="size-3.5" />} onClick={() => void start(deployment)}>
+                      <Button size="sm" variant="primary" icon={<Rocket className="size-3.5" />} onClick={() => requestDeploy(deployment)}>
                         Deploy
                       </Button>
                     )}
@@ -214,6 +225,8 @@ export function Deployments({ projectId }: { projectId: string }) {
           })}
         </div>
       )}
+
+      {pinFor && <PinPrompt deployment={pinFor} onClose={() => setPinFor(null)} onSubmit={(pin) => start(pinFor, pin)} />}
 
       {editing && (
         <DeploymentDialog
@@ -350,6 +363,50 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
           </Button>
           <Button type="submit" variant="primary" busy={saving} disabled={!name.trim() || !serverId || !remotePath.trim() || !commands.trim()}>
             {deployment ? "Save" : "Add deployment"}
+          </Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+function PinPrompt({ deployment, onClose, onSubmit }: { deployment: Deployment; onClose: () => void; onSubmit: (pin: string) => Promise<string | null> }) {
+  const [pin, setPin] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    const failure = await onSubmit(pin);
+    setBusy(false);
+    if (failure) {
+      setError(failure);
+      setPin("");
+    }
+  };
+
+  return (
+    <Dialog title={`Deploy ${deployment.name}?`} description={`Enter your 4-digit passphrase to deploy to ${deployment.serverName}.`} onClose={onClose} width="max-w-[380px]">
+      <form onSubmit={submit} className="space-y-4">
+        <Input
+          type="password"
+          inputMode="numeric"
+          value={pin}
+          onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 4))}
+          placeholder="••••"
+          autoFocus
+          aria-label="Deploy passphrase"
+          className="h-12 text-center font-mono text-[20px] tracking-[0.6em]"
+        />
+        {error && <ErrorNote>{error}</ErrorNote>}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" icon={<KeyRound className="size-3.5" />} busy={busy} disabled={pin.length !== 4}>
+            Deploy
           </Button>
         </div>
       </form>

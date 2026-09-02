@@ -42,6 +42,12 @@ export type ProjectRuntime = {
   ports: number[];
 };
 
+export type SessionUser = {
+  id: string;
+  username: string;
+  hasPin: boolean;
+};
+
 export type Status = {
   checkedAt: string;
   dockerAvailable: boolean;
@@ -49,6 +55,7 @@ export type Status = {
   projects: Project[];
   runtimes: Record<string, ProjectRuntime>;
   activeDeploys: Record<string, ActiveDeploy>;
+  user: SessionUser;
 };
 
 export type ComposeAction = "start" | "stop" | "restart" | "rebuild";

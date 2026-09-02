@@ -4,7 +4,7 @@ import { dataDir } from "./db";
 import { activeDeploysByProject } from "./deploy";
 import { listProjects } from "./projects";
 import { run } from "./shell";
-import type { Container, Project, ProjectRuntime, Status } from "./types";
+import type { Container, Project, ProjectRuntime, SessionUser, Status } from "./types";
 
 const composeFileNames = ["docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"];
 
@@ -72,7 +72,7 @@ async function runtimeFor(project: Project, groups: Map<string, DockerGroup>): P
   };
 }
 
-export async function getStatus(): Promise<Status> {
+export async function getStatus(user: SessionUser): Promise<Status> {
   const projects = listProjects();
   const docker = await dockerGroups();
   const runtimes = await Promise.all(projects.map((project) => runtimeFor(project, docker.groups)));
@@ -83,5 +83,6 @@ export async function getStatus(): Promise<Status> {
     projects,
     runtimes: Object.fromEntries(runtimes.map((runtime) => [runtime.id, runtime])),
     activeDeploys: activeDeploysByProject(),
+    user,
   };
 }

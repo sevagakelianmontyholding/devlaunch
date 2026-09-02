@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { checkServer, getServers, removeServer, saveServer } from "@/actions";
 import type { Server as DeployServer } from "@/lib/types";
 import { PageHeader } from "./app-shell";
+import { AccountCard } from "./account-card";
 import { useStatus } from "./status-provider";
 import { Button, Card, CardTitle, Confirm, Dialog, ErrorNote, Field, IconButton, Input, Spinner, Textarea, cx } from "./ui";
 
@@ -97,6 +98,8 @@ export function SettingsView() {
           )}
         </Card>
 
+        <div className="space-y-4">
+        <AccountCard />
         <Card>
           <CardTitle icon={<Zap className="size-4" />}>This Mac</CardTitle>
           <dl className="space-y-2 text-[12px]">
@@ -124,6 +127,7 @@ export function SettingsView() {
             </div>
           </dl>
         </Card>
+        </div>
       </div>
 
       {editing && (

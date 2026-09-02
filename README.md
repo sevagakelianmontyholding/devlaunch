@@ -1,6 +1,6 @@
 # DevLaunch
 
-A local developer command center for macOS. One Next.js app running on your Mac that shows every registered project with its Docker Compose and Git status, starts and stops services, opens folders in VS Code, and deploys to your own servers over SSH with one click.
+A local developer command center for macOS. One Next.js app running on your Mac that shows every registered project with its Docker Compose status, starts and stops services, opens folders in VS Code, and deploys to your own servers over SSH with one click.
 
 Everything lives on this Mac. There is no cloud, no accounts, and no scanning: projects are only what you add.
 

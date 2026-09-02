@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Boxes, Code2, ExternalLink, FolderOpen, GitBranch, GitCommitHorizontal, Globe2, Hammer, Link2, Pencil, Power, RotateCw, Trash2 } from "lucide-react";
+import { ArrowLeft, Boxes, Code2, ExternalLink, FolderOpen, Globe2, Hammer, Link2, Pencil, Power, RotateCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { openProject, removeProject, runCompose } from "@/actions";
 import type { ComposeAction } from "@/lib/types";
@@ -10,7 +10,7 @@ import { LogsPanel } from "./logs-panel";
 import { useNavigate } from "./navigate";
 import { ProjectDialog } from "./project-dialog";
 import { useStatus } from "./status-provider";
-import { Button, Card, CardTitle, Confirm, Dot, Empty, IconButton, Monogram, timeAgo } from "./ui";
+import { Button, Card, CardTitle, Confirm, Dot, Empty, IconButton, Monogram } from "./ui";
 
 const confirmCopy: Record<Exclude<ComposeAction, "start">, { title: string; body: string; label: string }> = {
   stop: { title: "Stop containers?", body: "docker compose stop will stop every service of this project.", label: "Stop" },
@@ -179,38 +179,6 @@ export function ProjectView({ id }: { id: string }) {
             </div>
           </Card>
 
-          <Card>
-            <CardTitle icon={<GitBranch className="size-4" />}>Git</CardTitle>
-            {runtime?.git ? (
-              <dl className="space-y-2 text-[12px]">
-                <Row label="Branch">
-                  <span className="font-mono">{runtime.git.branch}</span>
-                </Row>
-                <Row label="Working tree">
-                  <span className={runtime.git.dirty ? "text-warn" : "text-success"}>{runtime.git.dirty ? `${runtime.git.changedFiles} changed` : "Clean"}</span>
-                </Row>
-                {(runtime.git.ahead > 0 || runtime.git.behind > 0) && (
-                  <Row label="Upstream">
-                    <span className="font-mono text-warn">
-                      {runtime.git.ahead > 0 && `↑${runtime.git.ahead}`} {runtime.git.behind > 0 && `↓${runtime.git.behind}`}
-                    </span>
-                  </Row>
-                )}
-                {runtime.git.lastCommit && (
-                  <div className="border-t border-line pt-2">
-                    <p className="flex items-center gap-1.5 text-ink-dim">
-                      <GitCommitHorizontal className="size-3.5" />
-                      <span className="font-mono">{runtime.git.lastCommit.hash}</span>
-                      {runtime.git.lastCommit.authoredAt && <span className="text-ink-faint">· {timeAgo(runtime.git.lastCommit.authoredAt)}</span>}
-                    </p>
-                    <p className="mt-1 line-clamp-2 text-ink">{runtime.git.lastCommit.message}</p>
-                  </div>
-                )}
-              </dl>
-            ) : (
-              <p className="text-[12px] text-ink-faint">No Git repository at the project root.</p>
-            )}
-          </Card>
 
           <Card>
             <CardTitle icon={<FolderOpen className="size-4" />}>Folder</CardTitle>

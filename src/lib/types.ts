@@ -31,15 +31,6 @@ export type Container = {
   ports: string;
 };
 
-export type GitStatus = {
-  branch: string;
-  dirty: boolean;
-  changedFiles: number;
-  ahead: number;
-  behind: number;
-  lastCommit: { hash: string; message: string; authoredAt: string } | null;
-};
-
 export type ProjectRuntime = {
   id: string;
   exists: boolean;
@@ -47,7 +38,6 @@ export type ProjectRuntime = {
   running: boolean;
   containers: Container[];
   ports: number[];
-  git: GitStatus | null;
 };
 
 export type Status = {

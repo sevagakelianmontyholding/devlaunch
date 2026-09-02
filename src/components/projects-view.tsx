@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useNavigate } from "./navigate";
-import { Code2, ExternalLink, FolderKanban, GitBranch, Globe2, Plus, Power, Search } from "lucide-react";
+import { Code2, ExternalLink, FileCode2, FolderKanban, Globe2, Plus, Power, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { openProject, runCompose } from "@/actions";
 import type { Project, ProjectRuntime, Section } from "@/lib/types";
@@ -76,7 +76,7 @@ export function ProjectsView() {
         <Empty
           icon={<FolderKanban className="size-4" />}
           title="No projects yet"
-          hint="Register any folder on this Mac to see its Docker and Git status here."
+          hint="Register any folder on this Mac to see its Docker status here."
           action={
             <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>
               Add your first project
@@ -196,9 +196,8 @@ function ProjectCard({
 
       <div className="mt-auto flex items-center justify-between gap-2 pt-4">
         <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-ink-faint">
-          <GitBranch className="size-3 shrink-0" />
-          <span className="truncate font-mono">{runtime?.git?.branch ?? "no git"}</span>
-          {runtime?.git?.dirty && <Dot tone="warn" />}
+          <FileCode2 className="size-3 shrink-0" />
+          <span className="truncate font-mono">{runtime?.composeFile ?? "no compose file"}</span>
         </span>
         <div className="flex items-center gap-0.5">
           {runtime?.composeFile && (

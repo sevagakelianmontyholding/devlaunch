@@ -3,7 +3,7 @@ import path from "node:path";
 import { dataDir } from "./db";
 import { listProjects } from "./projects";
 import { run } from "./shell";
-import type { Container, GitStatus, Project, ProjectRuntime, Status } from "./types";
+import type { Container, Project, ProjectRuntime, Status } from "./types";
 
 const composeFileNames = ["docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"];
 
@@ -53,46 +53,12 @@ async function dockerGroups() {
   }
 }
 
-async function gitStatus(projectPath: string): Promise<GitStatus | null> {
-  if (!(await exists(path.join(projectPath, ".git")))) return null;
-  const git = (args: string[]) => run("git", ["-C", projectPath, ...args], { timeoutMs: 4000 });
-  try {
-    const [branch, porcelain, commit] = await Promise.all([
-      git(["branch", "--show-current"]),
-      git(["status", "--porcelain"]),
-      git(["log", "-1", "--format=%h%x09%s%x09%aI"]).catch(() => ({ stdout: "" })),
-    ]);
-    let ahead = 0;
-    let behind = 0;
-    try {
-      const { stdout } = await git(["rev-list", "--left-right", "--count", "HEAD...@{upstream}"]);
-      const [left, right] = stdout.trim().split(/\s+/).map(Number);
-      ahead = left ?? 0;
-      behind = right ?? 0;
-    } catch {
-      // No upstream configured.
-    }
-    const changed = porcelain.stdout.split("\n").filter(Boolean).length;
-    const [hash, message, authoredAt] = commit.stdout.trim().split("\t");
-    return {
-      branch: branch.stdout.trim() || "detached",
-      dirty: changed > 0,
-      changedFiles: changed,
-      ahead,
-      behind,
-      lastCommit: hash ? { hash, message: message ?? "", authoredAt: authoredAt ?? "" } : null,
-    };
-  } catch {
-    return null;
-  }
-}
-
 async function runtimeFor(project: Project, groups: Map<string, DockerGroup>): Promise<ProjectRuntime> {
   const projectPath = path.resolve(project.path);
   if (!(await exists(projectPath))) {
-    return { id: project.id, exists: false, composeFile: null, running: false, containers: [], ports: [], git: null };
+    return { id: project.id, exists: false, composeFile: null, running: false, containers: [], ports: [] };
   }
-  const [composeFile, git] = await Promise.all([findComposeFile(projectPath), gitStatus(projectPath)]);
+  const composeFile = await findComposeFile(projectPath);
   const group = groups.get(projectPath);
   const containers = [...(group?.containers ?? [])].sort((a, b) => a.name.localeCompare(b.name));
   return {
@@ -102,7 +68,6 @@ async function runtimeFor(project: Project, groups: Map<string, DockerGroup>): P
     running: containers.some((container) => container.state === "running"),
     containers,
     ports: [...(group?.ports ?? [])].sort((a, b) => a - b),
-    git,
   };
 }
 

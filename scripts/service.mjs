@@ -35,6 +35,19 @@ function launchctl(args, quiet = false) {
   }
 }
 
+function isLoaded() {
+  try {
+    execFileSync("launchctl", ["print", `${domain}/${label}`], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function sleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function install() {
   if (process.platform !== "darwin") throw new Error("The LaunchAgent is only available on macOS.");
   if (!existsSync(path.join(root, ".next", "BUILD_ID"))) throw new Error("Build first: npm run build");
@@ -81,6 +94,8 @@ ${Object.entries(vars)
   mkdirSync(vars.DEVLAUNCH_DATA_DIR, { recursive: true });
   writeFileSync(plistPath, plist);
   launchctl(["bootout", `${domain}/${label}`], true);
+  // bootout returns before the job is fully unloaded; bootstrapping too early fails.
+  for (let attempt = 0; attempt < 50 && isLoaded(); attempt += 1) sleep(100);
   launchctl(["bootstrap", domain, plistPath]);
   launchctl(["kickstart", "-k", `${domain}/${label}`]);
   console.log(`DevLaunch is running at http://127.0.0.1:${port} and will start at login.`);

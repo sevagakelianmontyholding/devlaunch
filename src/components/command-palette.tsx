@@ -1,6 +1,6 @@
 "use client";
 
-import { Boxes, Code2, FolderKanban, Power, Rocket, Search, Settings, TerminalSquare, Workflow } from "lucide-react";
+import { Boxes, Code2, FolderKanban, Power, Rocket, Search, Server, Settings, TerminalSquare, Workflow } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { openProject, openProjectTerminal, runCompose } from "@/actions";
 import { useNavigate } from "./navigate";
@@ -34,6 +34,7 @@ export function CommandPalette() {
     const list: Item[] = [
       { id: "page:projects", label: "Go to Projects", icon: <FolderKanban className="size-4" />, run: () => navigate("/") },
       { id: "page:services", label: "Go to Services", icon: <Boxes className="size-4" />, run: () => navigate("/services") },
+      { id: "page:servers", label: "Go to Servers", icon: <Server className="size-4" />, run: () => navigate("/servers") },
       { id: "page:pipelines", label: "Go to Pipelines", icon: <Workflow className="size-4" />, run: () => navigate("/pipelines") },
       { id: "page:settings", label: "Go to Settings", icon: <Settings className="size-4" />, run: () => navigate("/settings") },
     ];

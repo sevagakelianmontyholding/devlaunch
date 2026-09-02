@@ -143,10 +143,10 @@ export function Deployments({ projectId }: { projectId: string }) {
         <Spinner label="Loading…" />
       ) : deployments.length === 0 ? (
         <p className="text-[12px] text-ink-faint">
-          No deployments. Add one to ship this project to a server with one click — servers are managed in{" "}
-          <Link href="/settings" className="text-accent hover:underline">
-            Settings
-          </Link>
+          No deployments. Add one to ship this project to a server with one click — servers are managed on the{" "}
+          <Link href="/servers" className="text-accent hover:underline">
+            Servers
+          </Link>{" "}page
           .
         </p>
       ) : (
@@ -363,7 +363,7 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
           <Field label="Server">
             <Select value={serverId} onChange={(event) => setServerId(event.target.value)}>
               {servers === null && <option value="">Loading…</option>}
-              {servers?.length === 0 && <option value="">No servers — add one in Settings</option>}
+              {servers?.length === 0 && <option value="">No servers — add one on the Servers page</option>}
               {servers?.map((server) => (
                 <option key={server.id} value={server.id}>
                   {server.name} · {server.username}@{server.host}

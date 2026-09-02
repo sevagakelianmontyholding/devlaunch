@@ -46,7 +46,7 @@ Each person should use their **own** SSH key — never share private keys.
    ```
 
 2. Authorize it on the VPS by adding the contents of `~/.ssh/devlaunch.pub` to `~/.ssh/authorized_keys` there (or `ssh-copy-id -i ~/.ssh/devlaunch.pub user@host` if you can already log in).
-3. In DevLaunch, **Settings → Deploy servers → Add server**: name, host, SSH user, and paste the private key (`cat ~/.ssh/devlaunch`). Click **Test** — it should report the connection and the server's Docker versions.
+3. In DevLaunch, **Servers → Add server**: name, host, SSH user, and paste the private key (`cat ~/.ssh/devlaunch`). Click **Test** — it should report the connection and the server's Docker versions.
 
 Keys are stored in `data/keys/` with owner-only permissions and are used solely for SSH from this Mac.
 
@@ -78,7 +78,7 @@ Settings → Notifications: a macOS notification and/or a Slack or Discord webho
 
 ## Everything else
 
-- **Services** shows the containers on this Mac and the health of every deploy server (reachability, CPU architecture, Docker version, disk, memory, uptime, running containers).
+- **Servers** shows the health of every deploy server (reachability, CPU architecture, Docker version, disk, memory, uptime, running containers) next to its Test/Edit/Remove controls; **Services** shows the containers on this Mac.
 - **Notes** on each project page for the things you always forget.
 - **⌘K** opens a command palette: jump to a project or page, start/stop, open in VS Code or a terminal.
 - Settings → Appearance switches between dark and light.

@@ -23,10 +23,10 @@ const script = `on run
   on error
     return
   end try
-  set lines to paragraphs of content
-  set theTitle to item 1 of lines
-  set theMessage to item 2 of lines
-  set theSound to item 3 of lines
+  set parts to paragraphs of content
+  set theTitle to item 1 of parts
+  set theMessage to item 2 of parts
+  set theSound to item 3 of parts
   if theSound is "" then
     display notification theMessage with title theTitle
   else

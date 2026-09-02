@@ -66,7 +66,26 @@ Buttons on each deployment:
 
 ## Serving it as devlaunch.localhost
 
-If Nginx Proxy Manager (or any reverse proxy) runs in Docker, add a proxy host for `devlaunch.localhost` that forwards to `host.docker.internal` on port `3000` over HTTP. `host.docker.internal` is how a container reaches the Mac itself.
+DevLaunch listens on `127.0.0.1:3000`. To reach it as `http://devlaunch.localhost` through Nginx Proxy Manager (NPM) running in Docker:
+
+1. Open the NPM admin UI (usually `http://npm.localhost` or `http://localhost:81`).
+2. **Hosts → Proxy Hosts → Add Proxy Host** and fill in:
+
+   | Field | Value |
+   |---|---|
+   | Domain Names | `devlaunch.localhost` |
+   | Scheme | `http` |
+   | Forward Hostname / IP | `host.docker.internal` |
+   | Forward Port | `3000` |
+   | Websockets Support | on |
+   | Block Common Exploits | on (optional) |
+
+   Leave SSL off — it's local only.
+3. **Save**, then open `http://devlaunch.localhost`.
+
+`host.docker.internal` is the address of the Mac itself as seen from inside a container, which is why NPM forwards there instead of to a service name: DevLaunch runs on the Mac, not in Docker. Docker Desktop provides that hostname automatically. (If NPM ever runs on a Linux host instead, add `extra_hosts: ["host.docker.internal:host-gateway"]` to its compose service.)
+
+Browsers resolve any `*.localhost` name to your own machine, so no DNS or `/etc/hosts` entry is needed. If a tool refuses to resolve it, add `127.0.0.1 devlaunch.localhost` to `/etc/hosts`.
 
 ## Update
 

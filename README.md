@@ -6,27 +6,72 @@ Everything lives on this Mac. There is no cloud and no scanning: projects are on
 
 ## Requirements
 
-- macOS with Node.js 22+ and npm
-- Docker Desktop (for Compose controls and image builds)
-- Visual Studio Code (for the Code button)
+- macOS (Apple Silicon or Intel) with **Node.js 22+** and npm
+- **Docker Desktop** — for Compose controls and image builds. On Apple Silicon, keep *Settings → General → Use Rosetta for x86_64/amd64 emulation* enabled so images for Intel servers build quickly.
+- **Visual Studio Code** — for the Code button
+- Access to this repository (it is private; ask to be added as a collaborator and sign in to `git`)
 
-## Install
+## Install on a Mac
 
 ```bash
-git clone <this repo> devlaunch
-cd devlaunch
+git clone https://github.com/sevagakelianmontyholding/devlaunch.git ~/projects/devlaunch
+cd ~/projects/devlaunch
 npm ci
 npm run build
 npm run service:install
 ```
 
-`service:install` registers a LaunchAgent that starts DevLaunch at login on `http://127.0.0.1:3000`. Open that URL, or put it behind your reverse proxy (see below).
+`service:install` registers a LaunchAgent that starts DevLaunch at login on `http://127.0.0.1:3000`. Open that URL.
 
 Optional settings go in `.env` (copy `.env.example`): the port, and where the data folder lives.
+
+## First run
+
+1. **Create your account** — the first visit asks for a username and password. It lives only in this Mac's local database.
+2. **Settings → Account → Deploy passphrase** (optional) — set 4 digits; every Deploy click then asks for them before anything runs.
+3. **Add your projects** — *Add project*, Browse to the folder on this Mac, give it a name and section, and set its local commands (below). Every install has its own database, so each person adds the projects they work on.
+
+## Local commands
+
+Per project you set an optional **compose file** (relative path) and optional **start / stop / restart / rebuild commands**. With a compose file, the defaults are `docker compose -f <file> up -d`, `stop`, `restart`, and `up -d --build`; a custom command replaces the default for that action. Commands run in the project folder with your login shell, and their output streams live on the project page. Nothing is detected automatically.
+
+## Deploy servers
+
+Each person should use their **own** SSH key — never share private keys.
+
+1. Generate a key on your Mac (no passphrase, so deployments run unattended):
+
+   ```bash
+   ssh-keygen -t ed25519 -f ~/.ssh/devlaunch -N "" -C "devlaunch-<your name>"
+   ```
+
+2. Authorize it on the VPS by adding the contents of `~/.ssh/devlaunch.pub` to `~/.ssh/authorized_keys` there (or `ssh-copy-id -i ~/.ssh/devlaunch.pub user@host` if you can already log in).
+3. In DevLaunch, **Settings → Deploy servers → Add server**: name, host, SSH user, and paste the private key (`cat ~/.ssh/devlaunch`). Click **Test** — it should report the connection and the server's Docker versions.
+
+Keys are stored in `data/keys/` with owner-only permissions and are used solely for SSH from this Mac.
+
+## Deployments
+
+**Project → Deployments → Add**: pick the server and a mode.
+
+- **Image push** builds a Docker image locally for the server's CPU architecture (detected over SSH, or set explicitly), ships it with `docker save | ssh docker load` (no registry needed), then runs your commands. If the server already has that exact image, the upload is skipped.
+- **Commands only** just runs your commands on the server.
+
+The commands are always yours — one per line, executed in order inside the project directory on the server, stopping at the first failure. Nothing runs automatically.
+
+Buttons on each deployment:
+
+- **Deploy** — the full flow. Progress shows on the project page and on the project's card (build → upload with size, percent and speed → commands). A running deployment can be stopped.
+- **Run commands** — only the server commands, no build or upload. Use it after fixing a command, or to restart something on the server.
+
+## Serving it as devlaunch.localhost
+
+If Nginx Proxy Manager (or any reverse proxy) runs in Docker, add a proxy host for `devlaunch.localhost` that forwards to `host.docker.internal` on port `3000` over HTTP. `host.docker.internal` is how a container reaches the Mac itself.
 
 ## Update
 
 ```bash
+cd ~/projects/devlaunch
 git pull
 npm ci
 npm run build
@@ -41,30 +86,12 @@ npm run service:uninstall
 
 The `data/` folder (database and SSH keys) is left in place; delete it yourself if you want a clean slate.
 
-## Serving it as devlaunch.localhost
-
-If Nginx Proxy Manager (or any reverse proxy) runs in Docker, add a proxy host for `devlaunch.localhost` that forwards to `host.docker.internal` on port `3000` over HTTP. `host.docker.internal` is how a container reaches the Mac itself.
-
-## Local commands
-
-Per project you set an optional **compose file** (relative path) and optional **start / stop / restart / rebuild commands**. With a compose file, the defaults are `docker compose -f <file> up -d`, `stop`, `restart`, and `up -d --build`; a custom command replaces the default for that action. Commands run in the project folder with your login shell. Nothing is detected automatically.
-
-## Deployments
-
-1. **Settings → Deploy servers → Add server**: name, host, SSH user, and the private key (paste it). Use **Test** to confirm SSH and Docker work on the server.
-2. **Project → Deployments → Add**: pick the server and a mode:
-   - **Image push** builds a Docker image locally, ships it over SSH (`docker save | ssh docker load`, no registry needed), then runs your commands.
-   - **Commands only** just runs your commands on the server.
-3. The commands are always yours — one per line, executed in order inside the project directory on the server, stopping at the first failure. Nothing runs automatically.
-
-Click **Deploy** to run it; the log streams live and a running deployment can be stopped.
-
 ## Where things are stored
 
-- `data/devlaunch.sqlite` — projects, servers, deployments, and the last ten runs per deployment
+- `data/devlaunch.sqlite` — account, projects, servers, deployments, and the last ten runs per deployment
 - `data/keys/` — server private keys, owner-only permissions
 
-Both are git-ignored.
+Both are git-ignored and never leave the Mac.
 
 ## Development
 

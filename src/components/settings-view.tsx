@@ -165,7 +165,7 @@ function ServerDialog({ server, onClose, onSaved }: { server: DeployServer | nul
   };
 
   return (
-    <Dialog title={server ? `Edit ${server.name}` : "Add a deploy server"} onClose={onClose} width="max-w-[520px]">
+    <Dialog title={server ? `Edit ${server.name}` : "Add a deploy server"} onClose={onClose} width="max-w-[640px]">
       <form onSubmit={submit} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Name">

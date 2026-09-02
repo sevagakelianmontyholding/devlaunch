@@ -137,7 +137,7 @@ export function ErrorNote({ children }: { children: ReactNode }) {
   );
 }
 
-export function Dialog({ title, description, onClose, children, width = "max-w-[600px]" }: { title: string; description?: string; onClose: () => void; children: ReactNode; width?: string }) {
+export function Dialog({ title, description, onClose, children, width = "max-w-[800px]" }: { title: string; description?: string; onClose: () => void; children: ReactNode; width?: string }) {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);

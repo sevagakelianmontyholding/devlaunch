@@ -89,7 +89,7 @@ function PasswordDialog({ onClose, onDone }: { onClose: () => void; onDone: () =
   };
 
   return (
-    <Dialog title="Change password" onClose={onClose} width="max-w-[420px]">
+    <Dialog title="Change password" onClose={onClose} width="max-w-[480px]">
       <form onSubmit={submit} className="space-y-4">
         <Field label="Current password">
           <Input type="password" value={current} onChange={(event) => setCurrent(event.target.value)} autoComplete="current-password" autoFocus />
@@ -134,7 +134,7 @@ function PinDialog({ clearing, onClose, onDone }: { clearing: boolean; onClose: 
   const digits = (value: string) => value.replace(/\D/g, "").slice(0, 4);
 
   return (
-    <Dialog title={clearing ? "Remove deploy passphrase" : "Deploy passphrase"} description={clearing ? "Deploys will start immediately without asking." : "Four digits, asked for on every Deploy click."} onClose={onClose} width="max-w-[420px]">
+    <Dialog title={clearing ? "Remove deploy passphrase" : "Deploy passphrase"} description={clearing ? "Deploys will start immediately without asking." : "Four digits, asked for on every Deploy click."} onClose={onClose} width="max-w-[480px]">
       <form onSubmit={submit} className="space-y-4">
         {!clearing && (
           <div className="grid grid-cols-2 gap-4">

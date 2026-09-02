@@ -375,7 +375,7 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
   );
 }
 
-function PinPrompt({ deployment, commandsOnly, onClose, onSubmit }: { deployment: Deployment; commandsOnly: boolean; onClose: () => void; onSubmit: (pin: string) => Promise<string | null> }) {
+export function PinPrompt({ deployment, commandsOnly, onClose, onSubmit }: { deployment: { name: string; serverName: string }; commandsOnly: boolean; onClose: () => void; onSubmit: (pin: string) => Promise<string | null> }) {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

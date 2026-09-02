@@ -64,6 +64,13 @@ export type ActiveAction = {
   startedAt: string;
 };
 
+export type DeploymentSummary = {
+  id: string;
+  name: string;
+  serverName: string;
+  mode: DeployMode;
+};
+
 export type TerminalApp = "terminal" | "iterm" | "warp" | "ghostty" | "kitty" | "alacritty" | "termius" | "custom";
 
 export type TerminalSettings = {
@@ -87,6 +94,7 @@ export type Status = {
   activeDeploys: Record<string, ActiveDeploy>;
   activeActions: Record<string, ActiveAction>;
   terminal: TerminalSettings;
+  deployments: Record<string, DeploymentSummary[]>;
   user: SessionUser;
 };
 

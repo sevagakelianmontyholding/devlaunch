@@ -1,7 +1,7 @@
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { dataDir } from "./db";
-import { activeDeploysByProject } from "./deploy";
+import { activeDeploysByProject, deploymentSummariesByProject } from "./deploy";
 import { activeActionsByProject } from "./docker";
 import { getTerminalSettings } from "./terminal";
 import { listProjects } from "./projects";
@@ -76,6 +76,7 @@ export async function getStatus(user: SessionUser): Promise<Status> {
     activeDeploys: activeDeploysByProject(),
     activeActions: activeActionsByProject(),
     terminal: getTerminalSettings(),
+    deployments: deploymentSummariesByProject(),
     user,
   };
 }

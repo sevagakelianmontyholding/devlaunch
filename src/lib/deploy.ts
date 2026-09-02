@@ -9,7 +9,7 @@ import { formatBytes } from "./format";
 import { getProject } from "./projects";
 import { getServerRow, sshArgs, writeKey, type ServerRow } from "./servers";
 import { killProcessGroup, newControl, run, shQuote, spawnTracked, stream, UserError, waitForExit, type ProcessControl } from "./shell";
-import type { ActiveDeploy, DeployMode, DeployRun, DeployRunSummary, Deployment, DeploymentInput, UploadProgress } from "./types";
+import type { ActiveDeploy, DeployMode, DeployRun, DeployRunSummary, Deployment, DeploymentInput, DeploymentSummary, UploadProgress } from "./types";
 
 const LOG_LIMIT = 200_000;
 const SAFE_IMAGE = /^[a-z0-9][a-z0-9._/-]*$/;
@@ -98,6 +98,17 @@ export function listDeployments(projectId: string): Deployment[] {
     .prepare(`${selectDeployment} WHERE deployments.project_id = ? ORDER BY deployments.name COLLATE NOCASE`)
     .all(projectId) as Row[];
   return rows.map(fromRow);
+}
+
+export function deploymentSummariesByProject() {
+  const rows = db()
+    .prepare(`${selectDeployment} ORDER BY deployments.name COLLATE NOCASE`)
+    .all() as Row[];
+  const result: Record<string, DeploymentSummary[]> = {};
+  for (const row of rows) {
+    (result[row.project_id] ??= []).push({ id: row.id, name: row.name, serverName: row.server_name, mode: row.mode });
+  }
+  return result;
 }
 
 function getRow(id: string) {

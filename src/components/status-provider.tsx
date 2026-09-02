@@ -26,6 +26,11 @@ export function StatusProvider({ initial, children }: { initial: Status; childre
     inFlight.current = true;
     try {
       const response = await fetch("/api/status", { cache: "no-store" });
+      // Session expired or signed out elsewhere: reload so the sign-in screen appears.
+      if (response.status === 401) {
+        window.location.reload();
+        return;
+      }
       if (!response.ok) throw new Error();
       setStatus((await response.json()) as Status);
       setOnline(true);

@@ -63,6 +63,25 @@ Buttons on each deployment:
 
 - **Deploy** — the full flow. Progress shows on the project page and on the project's card (build → upload with size, percent and speed → commands). A running deployment can be stopped.
 - **Run commands** — only the server commands, no build or upload. Use it after fixing a command, or to restart something on the server.
+- **Roll back** (image deployments) — the previous image is kept on the server as `<image>:previous` before each upload; rollback re-tags it and runs your commands.
+- **History** — the last ten runs with status, kind, duration, and who ran them; click one to read its log.
+
+Extras per deployment: an optional **environment file** (stored encrypted on this Mac, written to the server before your commands) and a **clean git tree check** that refuses to deploy uncommitted or un-pulled code unless you choose "Deploy anyway".
+
+## Pipelines
+
+**Pipelines** chain deployments in order (for example backend, then frontend) behind one Run button, stopping at the first failure. A pipeline can also run daily at a set time while DevLaunch is running.
+
+## Notifications
+
+Settings → Notifications: a macOS notification and/or a Slack or Discord webhook whenever a deployment finishes or fails.
+
+## Everything else
+
+- **Services** shows the containers on this Mac and the health of every deploy server (reachability, CPU architecture, Docker version, disk, memory, uptime, running containers).
+- **Notes** on each project page for the things you always forget.
+- **⌘K** opens a command palette: jump to a project or page, start/stop, open in VS Code or a terminal.
+- Settings → Appearance switches between dark and light.
 
 ## Serving it as devlaunch.localhost
 

@@ -7,6 +7,7 @@ import { deploy, getDeployments, getServers, removeDeployment, saveDeployment, s
 import type { DeployMode, DeployRun, DeployRunSummary, Deployment, Server as DeployServer } from "@/lib/types";
 import { useStatus } from "./status-provider";
 import { Button, Card, CardTitle, Confirm, Dialog, Dot, ErrorNote, Field, IconButton, Input, Select, Spinner, Textarea, cx } from "./ui";
+import { formatBytes } from "@/lib/format";
 
 function runTone(run: DeployRunSummary | null) {
   if (!run) return { tone: "muted" as const, label: "Never deployed" };
@@ -153,6 +154,22 @@ export function Deployments({ projectId }: { projectId: string }) {
                     {lastRun && ` · ${new Date(lastRun.startedAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`}
                   </button>
                 </div>
+
+                {live?.upload && (
+                  <div className="mt-2 rounded-lg border border-accent/20 bg-accent/[0.05] px-3 py-2">
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11px]">
+                      <span className="font-medium text-accent">Uploading image · {live.upload.percent}%</span>
+                      <span className="text-ink-dim">
+                        {formatBytes(live.upload.readBytes)} of {formatBytes(live.upload.imageBytes)}
+                        <span className="text-ink-faint"> · {formatBytes(live.upload.sentBytes)} sent compressed</span>
+                      </span>
+                      <span className="font-mono text-ink">{formatBytes(live.upload.bytesPerSecond)}/s</span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line">
+                      <div className="h-full rounded-full bg-accent transition-[width] duration-500" style={{ width: `${live.upload.percent}%` }} />
+                    </div>
+                  </div>
+                )}
 
                 {live && (
                   <div className="mt-2 border-t border-line pt-2">

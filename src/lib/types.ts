@@ -109,10 +109,19 @@ export type DeployRunSummary = {
   finishedAt: string | null;
 };
 
+export type UploadProgress = {
+  imageBytes: number;
+  readBytes: number;
+  sentBytes: number;
+  bytesPerSecond: number;
+  percent: number;
+};
+
 export type DeployRun = DeployRunSummary & {
   deploymentId: string;
   projectId: string;
   log: string;
+  upload: UploadProgress | null;
 };
 
 export type ActionResult<T = undefined> =

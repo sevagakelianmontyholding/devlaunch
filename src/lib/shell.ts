@@ -29,18 +29,39 @@ export function shQuote(value: string) {
   return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
+export type Child = ReturnType<typeof spawn>;
+
+// Tracks every live process of a run so cancelling kills all of them.
 export type ProcessControl = {
   cancelled: boolean;
-  child: ReturnType<typeof spawn> | null;
+  children: Set<Child>;
 };
 
-export function killProcessGroup(child: ReturnType<typeof spawn>, signal: NodeJS.Signals) {
+export function newControl(): ProcessControl {
+  return { cancelled: false, children: new Set() };
+}
+
+export function killProcessGroup(child: Child, signal: NodeJS.Signals) {
   if (child.pid === undefined) return;
   try {
     process.kill(-child.pid, signal);
   } catch {
     child.kill(signal);
   }
+}
+
+export function spawnTracked(command: string, args: string[], control: ProcessControl | undefined, cwd?: string) {
+  const child = spawn(command, args, { cwd, env: shellEnv, detached: true, stdio: ["pipe", "pipe", "pipe"] });
+  control?.children.add(child);
+  child.on("close", () => control?.children.delete(child));
+  return child;
+}
+
+export function waitForExit(child: Child, label: string) {
+  return new Promise<void>((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`${label} exited with code ${code}`))));
+  });
 }
 
 // Streams a long-running command's output and supports cancellation. Each step
@@ -60,8 +81,7 @@ export function stream(
       reject(new Error("Cancelled"));
       return;
     }
-    const child = spawn(command, args, { cwd: options.cwd, env: shellEnv, detached: true });
-    if (options.control) options.control.child = child;
+    const child = spawnTracked(command, args, options.control, options.cwd);
     const timer = setTimeout(() => {
       killProcessGroup(child, "SIGKILL");
       reject(new Error(`Timed out after ${Math.round(options.timeoutMs / 60_000)} minutes`));
@@ -74,7 +94,6 @@ export function stream(
     });
     child.on("close", (code) => {
       clearTimeout(timer);
-      if (options.control) options.control.child = null;
       if (options.control?.cancelled) reject(new Error("Cancelled"));
       else if (code === 0) resolve();
       else reject(new Error(`Exited with code ${code}`));

@@ -1,11 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { access } from "node:fs/promises";
 import path from "node:path";
+import { Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import { createGzip } from "node:zlib";
 import { db, now } from "./db";
+import { formatBytes } from "./format";
 import { getProject } from "./projects";
 import { getServerRow, sshArgs, writeKey, type ServerRow } from "./servers";
-import { killProcessGroup, shQuote, stream, UserError, type ProcessControl } from "./shell";
-import type { DeployMode, DeployRun, DeployRunSummary, Deployment, DeploymentInput } from "./types";
+import { killProcessGroup, newControl, run, shQuote, spawnTracked, stream, UserError, waitForExit, type ProcessControl } from "./shell";
+import type { DeployMode, DeployRun, DeployRunSummary, Deployment, DeploymentInput, UploadProgress } from "./types";
 
 const LOG_LIMIT = 200_000;
 const SAFE_IMAGE = /^[a-z0-9][a-z0-9._/-]*$/;
@@ -208,6 +212,7 @@ export function getRun(id: string): DeployRun {
     log: row.log,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
+    upload: null,
   };
 }
 
@@ -241,6 +246,79 @@ async function resolveDockerfile(projectPath: string, context: string, dockerfil
   throw new Error(`Dockerfile not found: ${dockerfile} (looked in the build context and the project root)`);
 }
 
+function counter(onChunk: (bytes: number) => void) {
+  return new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      onChunk(chunk.length);
+      callback(null, chunk);
+    },
+  });
+}
+
+// docker save → gzip → ssh "docker load", with byte counters on both sides of
+// gzip so the run can report progress (raw bytes vs. image size) and upload
+// speed (compressed bytes actually leaving the Mac).
+async function pushImage(run: DeployRun, image: string, server: ServerRow, control: ProcessControl, log: (chunk: string) => void) {
+  if (control.cancelled) throw new Error("Cancelled");
+  const inspect = await run_("docker", ["image", "inspect", "--format", "{{.Size}}", image]);
+  const imageBytes = Number(inspect.trim()) || 0;
+  const progress: UploadProgress = { imageBytes, readBytes: 0, sentBytes: 0, bytesPerSecond: 0, percent: 0 };
+  run.upload = progress;
+  log(`  image size ${formatBytes(imageBytes)}\n`);
+
+  const save = spawnTracked("docker", ["save", image], control);
+  const ssh = spawnTracked("ssh", [...sshArgs(server), "gunzip | docker load"], control);
+  save.stderr?.on("data", (chunk: Buffer) => log(chunk.toString("utf8")));
+  ssh.stdout?.on("data", (chunk: Buffer) => log(chunk.toString("utf8")));
+  ssh.stderr?.on("data", (chunk: Buffer) => log(chunk.toString("utf8")));
+
+  const startedAt = Date.now();
+  let lastSample = { at: startedAt, sent: 0 };
+  const ticker = setInterval(() => {
+    const at = Date.now();
+    const seconds = (at - lastSample.at) / 1000;
+    const instant = seconds > 0 ? (progress.sentBytes - lastSample.sent) / seconds : 0;
+    progress.bytesPerSecond = progress.bytesPerSecond ? progress.bytesPerSecond * 0.6 + instant * 0.4 : instant;
+    progress.percent = imageBytes > 0 ? Math.min(99, Math.round((progress.readBytes / imageBytes) * 100)) : 0;
+    lastSample = { at, sent: progress.sentBytes };
+  }, 500);
+
+  const timeout = setTimeout(() => {
+    for (const child of control.children) killProcessGroup(child, "SIGKILL");
+  }, 60 * 60_000);
+
+  try {
+    await Promise.all([
+      pipeline(
+        save.stdout!,
+        counter((bytes) => (progress.readBytes += bytes)),
+        createGzip({ level: 6 }),
+        counter((bytes) => (progress.sentBytes += bytes)),
+        ssh.stdin!,
+      ),
+      waitForExit(save, "docker save"),
+      waitForExit(ssh, "ssh"),
+    ]);
+    const seconds = Math.max(1, (Date.now() - startedAt) / 1000);
+    progress.percent = 100;
+    log(
+      `  uploaded ${formatBytes(progress.readBytes)} (${formatBytes(progress.sentBytes)} compressed) in ${Math.round(seconds)}s · avg ${formatBytes(progress.sentBytes / seconds)}/s\n`,
+    );
+  } catch (error) {
+    if (control.cancelled) throw new Error("Cancelled");
+    throw error;
+  } finally {
+    clearInterval(ticker);
+    clearTimeout(timeout);
+    run.upload = null;
+  }
+}
+
+async function run_(command: string, args: string[]) {
+  const { stdout } = await run(command, args, { timeoutMs: 30_000 });
+  return stdout;
+}
+
 async function execute(run: DeployRun, config: Row, server: ServerRow, projectPath: string, control: ProcessControl) {
   const log = (chunk: string) => (run.log = (run.log + chunk).slice(-LOG_LIMIT));
   const step = (title: string) => log(`\n▶ ${title}\n`);
@@ -257,10 +335,8 @@ async function execute(run: DeployRun, config: Row, server: ServerRow, projectPa
     step(`Building ${image}`);
     await stream("docker", args, { cwd: projectPath, timeoutMs: 30 * 60_000, onOutput: log, control });
 
-    step(`Pushing ${image} to ${server.name} over SSH`);
-    const ssh = ["ssh", ...sshArgs(server)].map(shQuote).join(" ");
-    const pipeline = `docker save ${shQuote(image)} | gzip | ${ssh} 'gunzip | docker load'`;
-    await stream("/bin/sh", ["-c", pipeline], { timeoutMs: 30 * 60_000, onOutput: log, control });
+    step(`Uploading ${image} to ${server.name} over SSH`);
+    await pushImage(run, image, server, control, log);
   }
 
   const lines = commandLines(config.commands);
@@ -289,8 +365,9 @@ export async function startRun(deploymentId: string): Promise<DeployRun> {
     log: `Deploying ${config.name} → ${server.name} (${server.username}@${server.host})\n`,
     startedAt: now(),
     finishedAt: null,
+    upload: null,
   };
-  const control: ProcessControl = { cancelled: false, child: null };
+  const control = newControl();
   activeRuns.set(run.id, { run, control });
 
   void (async () => {
@@ -320,11 +397,9 @@ export function cancelRun(id: string) {
   if (!active || active.run.status !== "running") throw new UserError("This run is not in progress");
   active.control.cancelled = true;
   active.run.log += "\n■ Cancelling…\n";
-  const child = active.control.child;
-  if (child) {
-    killProcessGroup(child, "SIGTERM");
-    setTimeout(() => {
-      if (active.control.child === child) killProcessGroup(child, "SIGKILL");
-    }, 5_000);
-  }
+  const children = [...active.control.children];
+  for (const child of children) killProcessGroup(child, "SIGTERM");
+  setTimeout(() => {
+    for (const child of children) if (active.control.children.has(child)) killProcessGroup(child, "SIGKILL");
+  }, 5_000);
 }

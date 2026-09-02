@@ -2,16 +2,15 @@
 
 import Link from "next/link";
 import { useNavigate } from "./navigate";
-import { Code2, ExternalLink, FlaskConical, FolderKanban, Globe2, Plus, Power, Rocket, Search, Server, TerminalSquare } from "lucide-react";
+import { Code2, ExternalLink, FlaskConical, FolderKanban, Globe2, Plus, Power, Rocket, Search, TerminalSquare } from "lucide-react";
 import { formatBytes } from "@/lib/format";
 import { useMemo, useState } from "react";
-import { deploy, openProject, openProjectTerminal, runCompose } from "@/actions";
-import type { ActiveAction, ActiveDeploy, DeploymentSummary, Project, ProjectRuntime, Section } from "@/lib/types";
+import { openProject, openProjectTerminal, runCompose } from "@/actions";
+import type { ActiveAction, ActiveDeploy, Project, ProjectRuntime, Section } from "@/lib/types";
 import { PageHeader } from "./app-shell";
-import { PinPrompt } from "./deployments";
 import { ProjectDialog } from "./project-dialog";
 import { useStatus } from "./status-provider";
-import { Button, Dialog, Dot, Empty, IconButton, IconLink, Input, Monogram, Segmented, cx } from "./ui";
+import { Button, Dot, Empty, IconButton, IconLink, Input, Monogram, Segmented, cx } from "./ui";
 
 type Filter = "all" | Section;
 type Sort = "name" | "running";
@@ -23,43 +22,6 @@ export function ProjectsView() {
   const [sort, setSort] = useState<Sort>("running");
   const [adding, setAdding] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [chooser, setChooser] = useState<Project | null>(null);
-  const [pinFor, setPinFor] = useState<{ project: Project; deployment: DeploymentSummary } | null>(null);
-  const [gitWarning, setGitWarning] = useState<{ project: Project; deployment: DeploymentSummary; message: string; pin?: string } | null>(null);
-  const navigate = useNavigate();
-
-  const startDeploy = async (project: Project, deployment: DeploymentSummary, pin?: string, force = false): Promise<string | null> => {
-    const result = await deploy(deployment.id, pin, "deploy", force);
-    if (!result.ok) {
-      if (result.error.startsWith("GIT_CHECK:")) {
-        setPinFor(null);
-        setGitWarning({ project, deployment, message: result.error.slice("GIT_CHECK:".length), pin });
-        return null;
-      }
-      if (pin === undefined) notify("error", result.error);
-      return result.error;
-    }
-    setPinFor(null);
-    setChooser(null);
-    setGitWarning(null);
-    notify("success", `Deploying ${project.name} · ${deployment.name}`);
-    await refresh();
-    return null;
-  };
-
-  const requestDeploy = (project: Project, deployment?: DeploymentSummary) => {
-    const list = status.deployments[project.id] ?? [];
-    const target = deployment ?? (list.length === 1 ? list[0] : undefined);
-    if (list.length === 0) {
-      notify("error", `${project.name} has no deployments yet — add one on its page`);
-      navigate(`/projects/${project.id}`);
-      return;
-    }
-    if (!target) return setChooser(project);
-    if (status.user.hasPin) setPinFor({ project, deployment: target });
-    else void startDeploy(project, target);
-  };
-
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return status.projects
@@ -164,7 +126,6 @@ export function ProjectsView() {
                             onToggle={() => void toggleCompose(project, status.runtimes[project.id])}
                             onOpen={() => void open(project)}
                             onTerminal={() => void openTerminal(project)}
-                            onDeploy={() => requestDeploy(project)}
                           />
                         ))}
                       </div>
@@ -178,42 +139,6 @@ export function ProjectsView() {
 
       {adding && <ProjectDialog onClose={() => setAdding(false)} />}
 
-      {chooser && (
-        <Dialog title={`Deploy ${chooser.name}`} description="Choose which deployment to run." onClose={() => setChooser(null)} width="max-w-[440px]">
-          <div className="space-y-2">
-            {(status.deployments[chooser.id] ?? []).map((deployment) => (
-              <button
-                key={deployment.id}
-                type="button"
-                onClick={() => requestDeploy(chooser, deployment)}
-                className="flex w-full items-center gap-3 rounded-lg border border-line bg-bg px-3 py-2.5 text-left transition hover:border-accent/50"
-              >
-                <Rocket className="size-4 text-accent" />
-                <span className="text-[13px] font-medium">{deployment.name}</span>
-                <span className="ml-auto flex items-center gap-1 text-[11px] text-ink-dim">
-                  <Server className="size-3" /> {deployment.serverName}
-                </span>
-              </button>
-            ))}
-          </div>
-        </Dialog>
-      )}
-
-      {pinFor && <PinPrompt deployment={pinFor.deployment} kind="deploy" onClose={() => setPinFor(null)} onSubmit={(pin) => startDeploy(pinFor.project, pinFor.deployment, pin)} />}
-
-      {gitWarning && (
-        <Dialog title="Working tree is not clean" onClose={() => setGitWarning(null)} width="max-w-[460px]">
-          <p className="text-[13px] leading-5 text-ink-dim">{gitWarning.message}</p>
-          <div className="mt-4 flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setGitWarning(null)}>
-              Cancel
-            </Button>
-            <Button variant="danger" icon={<Rocket className="size-3.5" />} onClick={() => void startDeploy(gitWarning.project, gitWarning.deployment, gitWarning.pin, true)}>
-              Deploy anyway
-            </Button>
-          </div>
-        </Dialog>
-      )}
     </div>
   );
 }
@@ -228,7 +153,6 @@ function ProjectCard({
   onToggle,
   onOpen,
   onTerminal,
-  onDeploy,
 }: {
   project: Project;
   runtime: ProjectRuntime | undefined;
@@ -239,7 +163,6 @@ function ProjectCard({
   onToggle: () => void;
   onOpen: () => void;
   onTerminal: () => void;
-  onDeploy: () => void;
 }) {
   const navigate = useNavigate();
   const state = !runtime?.exists
@@ -306,9 +229,6 @@ function ProjectCard({
           </IconButton>
           <IconButton label="Open in terminal" onClick={onTerminal}>
             <TerminalSquare className="size-4" />
-          </IconButton>
-          <IconButton label={deploy ? "Deploying…" : "Deploy"} onClick={onDeploy} disabled={Boolean(deploy)} className={cx("text-accent", deploy && "animate-pulse")}>
-            <Rocket className="size-4" />
           </IconButton>
           {localUrl && (
             <IconLink label={`Local · ${localUrl.replace(/^https?:\/\//, "")}`} href={localUrl}>

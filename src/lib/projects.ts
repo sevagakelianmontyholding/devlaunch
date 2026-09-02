@@ -23,6 +23,7 @@ type Row = {
   stop_command: string | null;
   restart_command: string | null;
   rebuild_command: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -40,6 +41,7 @@ function fromRow(row: Row): Project {
     liveUrl: row.live_url,
     composeFile: row.compose_file,
     commands: { start: row.start_command, stop: row.stop_command, restart: row.restart_command, rebuild: row.rebuild_command },
+    notes: row.notes ?? "",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -184,6 +186,12 @@ export async function updateProject(id: string, input: ProjectInput): Promise<Pr
       ...project.commands,
       updatedAt: now(),
     });
+  return getProject(id)!;
+}
+
+export function saveNotes(id: string, notes: string) {
+  if (!getProject(id)) throw new UserError("Project not found");
+  db().prepare("UPDATE projects SET notes = ?, updated_at = ? WHERE id = ?").run(notes.slice(0, 20_000), now(), id);
   return getProject(id)!;
 }
 

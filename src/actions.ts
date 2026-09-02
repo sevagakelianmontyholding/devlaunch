@@ -1,20 +1,29 @@
 "use server";
 
 import { changePassword, createFirstUser, requireUser, setDeployPin, signIn, signOut, verifyDeployPin } from "@/lib/auth";
-import { cancelRun, createDeployment, deleteDeployment, listDeployments, startRun, updateDeployment } from "@/lib/deploy";
+import { cancelRun, createDeployment, deleteDeployment, listDeployments, listRuns, startRun, updateDeployment } from "@/lib/deploy";
+import { getNotificationSettings, saveNotificationSettings, sendTestNotification } from "@/lib/notify";
+import { activePipelineRunsById, deletePipeline, listPipelines, savePipeline, startPipeline } from "@/lib/pipelines";
 import { openInEditor, openInTerminal, startAction } from "@/lib/docker";
 import { saveTerminalSettings } from "@/lib/terminal";
-import { createProject, deleteProject, pickFolder, updateProject } from "@/lib/projects";
-import { createServer, deleteServer, listServers, testServer, updateServer } from "@/lib/servers";
+import { createProject, deleteProject, pickFolder, saveNotes, updateProject } from "@/lib/projects";
+import { createServer, deleteServer, listServers, serverHealth, testServer, updateServer } from "@/lib/servers";
 import { UserError } from "@/lib/shell";
 import type {
   ActionResult,
   ComposeAction,
   DeployRun,
+  DeployRunSummary,
   Deployment,
   DeploymentInput,
   LocalRun,
+  NotificationSettings,
+  Pipeline,
+  PipelineInput,
+  PipelineRun,
   Project,
+  RunKind,
+  ServerHealth,
   ProjectInput,
   Server,
   ServerInput,
@@ -64,6 +73,10 @@ export async function updateDeployPin(password: string, pin: string | null): Pro
 // Projects
 export async function saveProject(id: string | null, input: ProjectInput): Promise<ActionResult<Project>> {
   return attempt(() => (id ? updateProject(id, input) : createProject(input)));
+}
+
+export async function saveProjectNotes(id: string, notes: string): Promise<ActionResult<Project>> {
+  return attempt(() => saveNotes(id, notes));
 }
 
 export async function removeProject(id: string): Promise<ActionResult<Project>> {
@@ -133,10 +146,59 @@ export async function removeDeployment(id: string): Promise<ActionResult<Deploym
   return attempt(() => deleteDeployment(id));
 }
 
-export async function deploy(deploymentId: string, pin?: string, commandsOnly = false): Promise<ActionResult<DeployRun>> {
+export async function deploy(deploymentId: string, pin?: string, kind: RunKind = "deploy", force = false): Promise<ActionResult<DeployRun>> {
   return attempt((user) => {
     verifyDeployPin(user.id, pin);
-    return startRun(deploymentId, commandsOnly);
+    return startRun(deploymentId, { kind, force, username: user.username });
+  });
+}
+
+export async function getDeployRuns(deploymentId: string): Promise<DeployRunSummary[]> {
+  await requireUser();
+  return listRuns(deploymentId);
+}
+
+// Servers health
+export async function getServerHealth(): Promise<ServerHealth[]> {
+  await requireUser();
+  return serverHealth();
+}
+
+// Notifications
+export async function getNotifications(): Promise<NotificationSettings> {
+  await requireUser();
+  return getNotificationSettings();
+}
+
+export async function updateNotifications(input: NotificationSettings): Promise<ActionResult<NotificationSettings>> {
+  return attempt(() => saveNotificationSettings(input));
+}
+
+export async function testNotification(): Promise<ActionResult> {
+  return attempt(async () => {
+    await sendTestNotification();
+    return undefined;
+  });
+}
+
+// Pipelines
+export async function getPipelines(): Promise<{ pipelines: Pipeline[]; active: Record<string, PipelineRun> }> {
+  await requireUser();
+  return { pipelines: listPipelines(), active: activePipelineRunsById() };
+}
+
+export async function savePipelineAction(id: string | null, input: PipelineInput): Promise<ActionResult<Pipeline>> {
+  return attempt(() => savePipeline(id, input));
+}
+
+export async function removePipeline(id: string): Promise<ActionResult<Pipeline>> {
+  return attempt(() => deletePipeline(id));
+}
+
+export async function runPipeline(id: string, pin?: string): Promise<ActionResult<PipelineRun>> {
+  return attempt((user) => {
+    verifyDeployPin(user.id, pin);
+    return startPipeline(id, user.username);
   });
 }
 

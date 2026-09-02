@@ -3,7 +3,7 @@ import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { db, keysDir, now } from "./db";
 import { stream, UserError } from "./shell";
-import type { Server, ServerInput } from "./types";
+import type { Server, ServerHealth, ServerInput } from "./types";
 
 export type ServerRow = {
   id: string;
@@ -129,4 +129,50 @@ export async function testServer(id: string) {
     const message = error instanceof Error ? error.message : "Connection failed";
     throw new UserError(`${message}${output ? `\n${output.trim()}` : ""}`.slice(0, 2000));
   }
+}
+
+// One SSH round-trip per server: architecture, Docker version, disk, memory,
+// uptime, and running containers. Failures are reported, never thrown.
+export async function serverHealth(): Promise<ServerHealth[]> {
+  const script = [
+    "echo ARCH=$(uname -m)",
+    "echo DOCKER=$(docker --version 2>/dev/null | sed 's/Docker version //; s/,.*//')",
+    "echo DISK=$(df -h / | awk 'NR==2 {print $3\"|\"$2\"|\"$5}')",
+    "echo MEM=$(free -h 2>/dev/null | awk 'NR==2 {print $3\"|\"$2}')",
+    "echo UPTIME=$(uptime -p 2>/dev/null || uptime)",
+    "docker ps --format 'CONTAINER={{.Names}}|{{.Status}}|{{.Image}}' 2>/dev/null",
+  ].join("; ");
+  const rows = db().prepare("SELECT * FROM servers ORDER BY name COLLATE NOCASE").all() as ServerRow[];
+  return Promise.all(
+    rows.map(async (server): Promise<ServerHealth> => {
+      const base = { id: server.id, name: server.name, checkedAt: new Date().toISOString() };
+      let output = "";
+      try {
+        await writeKey(server.id, server.private_key);
+        await stream("ssh", [...sshArgs(server), script], { timeoutMs: 25_000, onOutput: (chunk) => (output += chunk) });
+      } catch (error) {
+        return { ...base, reachable: false, error: error instanceof Error ? error.message : "Unreachable", arch: null, dockerVersion: null, disk: null, memory: null, uptime: null, containers: [] };
+      }
+      const get = (key: string) => output.split("\n").find((line) => line.startsWith(`${key}=`))?.slice(key.length + 1).trim() ?? "";
+      const [used = "", total = "", percent = ""] = get("DISK").split("|");
+      const [memUsed = "", memTotal = ""] = get("MEM").split("|");
+      return {
+        ...base,
+        reachable: true,
+        error: null,
+        arch: get("ARCH") || null,
+        dockerVersion: get("DOCKER") || null,
+        disk: used ? { used, total, percent: Number(percent.replace("%", "")) || 0 } : null,
+        memory: memUsed ? { used: memUsed, total: memTotal } : null,
+        uptime: get("UPTIME").replace(/^up /, "") || null,
+        containers: output
+          .split("\n")
+          .filter((line) => line.startsWith("CONTAINER="))
+          .map((line) => {
+            const [name = "", status = "", image = ""] = line.slice("CONTAINER=".length).split("|");
+            return { name, status, image };
+          }),
+      };
+    }),
+  );
 }

@@ -7,6 +7,7 @@ import { openProject, openProjectTerminal, removeProject, runCompose } from "@/a
 import type { ComposeAction, LocalRun } from "@/lib/types";
 import { Deployments } from "./deployments";
 import { LogsPanel } from "./logs-panel";
+import { NotesCard } from "./notes-card";
 import { useNavigate } from "./navigate";
 import { ProjectDialog } from "./project-dialog";
 import { useStatus } from "./status-provider";
@@ -237,6 +238,8 @@ export function ProjectView({ id }: { id: string }) {
         </div>
 
         <div className="space-y-4">
+          <NotesCard project={project} />
+
           <Card>
             <CardTitle icon={<Link2 className="size-4" />}>Links</CardTitle>
             <div className="space-y-1.5">

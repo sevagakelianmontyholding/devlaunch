@@ -25,16 +25,23 @@ export function ProjectsView() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [chooser, setChooser] = useState<Project | null>(null);
   const [pinFor, setPinFor] = useState<{ project: Project; deployment: DeploymentSummary } | null>(null);
+  const [gitWarning, setGitWarning] = useState<{ project: Project; deployment: DeploymentSummary; message: string; pin?: string } | null>(null);
   const navigate = useNavigate();
 
-  const startDeploy = async (project: Project, deployment: DeploymentSummary, pin?: string): Promise<string | null> => {
-    const result = await deploy(deployment.id, pin);
+  const startDeploy = async (project: Project, deployment: DeploymentSummary, pin?: string, force = false): Promise<string | null> => {
+    const result = await deploy(deployment.id, pin, "deploy", force);
     if (!result.ok) {
+      if (result.error.startsWith("GIT_CHECK:")) {
+        setPinFor(null);
+        setGitWarning({ project, deployment, message: result.error.slice("GIT_CHECK:".length), pin });
+        return null;
+      }
       if (pin === undefined) notify("error", result.error);
       return result.error;
     }
     setPinFor(null);
     setChooser(null);
+    setGitWarning(null);
     notify("success", `Deploying ${project.name} · ${deployment.name}`);
     await refresh();
     return null;
@@ -192,7 +199,21 @@ export function ProjectsView() {
         </Dialog>
       )}
 
-      {pinFor && <PinPrompt deployment={pinFor.deployment} commandsOnly={false} onClose={() => setPinFor(null)} onSubmit={(pin) => startDeploy(pinFor.project, pinFor.deployment, pin)} />}
+      {pinFor && <PinPrompt deployment={pinFor.deployment} kind="deploy" onClose={() => setPinFor(null)} onSubmit={(pin) => startDeploy(pinFor.project, pinFor.deployment, pin)} />}
+
+      {gitWarning && (
+        <Dialog title="Working tree is not clean" onClose={() => setGitWarning(null)} width="max-w-[460px]">
+          <p className="text-[13px] leading-5 text-ink-dim">{gitWarning.message}</p>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setGitWarning(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" icon={<Rocket className="size-3.5" />} onClick={() => void startDeploy(gitWarning.project, gitWarning.deployment, gitWarning.pin, true)}>
+              Deploy anyway
+            </Button>
+          </div>
+        </Dialog>
+      )}
     </div>
   );
 }

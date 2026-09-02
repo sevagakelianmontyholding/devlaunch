@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, ChevronUp, KeyRound, Pencil, Plus, Rocket, Server, Square, TerminalSquare, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, History, KeyRound, Pencil, Plus, Rocket, Server, Square, TerminalSquare, Trash2, Undo2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { deploy, getDeployments, getServers, removeDeployment, saveDeployment, stopDeploy } from "@/actions";
-import type { DeployMode, DeployRun, DeployRunSummary, Deployment, Server as DeployServer } from "@/lib/types";
+import { deploy, getDeployRuns, getDeployments, getServers, removeDeployment, saveDeployment, stopDeploy } from "@/actions";
+import type { DeployMode, DeployRun, DeployRunSummary, Deployment, RunKind, Server as DeployServer } from "@/lib/types";
 import { useStatus } from "./status-provider";
 import { Button, Card, CardTitle, Confirm, Dialog, Dot, ErrorNote, Field, IconButton, Input, Select, Spinner, Textarea, cx } from "./ui";
 import { formatBytes } from "@/lib/format";
@@ -21,7 +21,10 @@ function runTone(run: DeployRunSummary | null) {
 
 export function Deployments({ projectId }: { projectId: string }) {
   const { status, notify, refresh } = useStatus();
-  const [pinFor, setPinFor] = useState<{ deployment: Deployment; commandsOnly: boolean } | null>(null);
+  const [pinFor, setPinFor] = useState<{ deployment: Deployment; kind: RunKind; force: boolean } | null>(null);
+  const [gitWarning, setGitWarning] = useState<{ deployment: Deployment; message: string; pin?: string } | null>(null);
+  const [historyFor, setHistoryFor] = useState<string | null>(null);
+  const [history, setHistory] = useState<DeployRunSummary[] | null>(null);
   const [deployments, setDeployments] = useState<Deployment[] | null>(null);
   const [editing, setEditing] = useState<Deployment | "new" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -69,13 +72,19 @@ export function Deployments({ projectId }: { projectId: string }) {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
   }, [watched?.log]);
 
-  const start = async (deployment: Deployment, pin: string | undefined, commandsOnly: boolean): Promise<string | null> => {
-    const result = await deploy(deployment.id, pin, commandsOnly);
+  const start = async (deployment: Deployment, pin: string | undefined, kind: RunKind, force = false): Promise<string | null> => {
+    const result = await deploy(deployment.id, pin, kind, force);
     if (!result.ok) {
+      if (result.error.startsWith("GIT_CHECK:")) {
+        setPinFor(null);
+        setGitWarning({ deployment, message: result.error.slice("GIT_CHECK:".length), pin });
+        return null;
+      }
       if (pin === undefined) notify("error", result.error);
       return result.error;
     }
     setPinFor(null);
+    setGitWarning(null);
     setWatched(result.data);
     setLogOpen(true);
     void load();
@@ -83,9 +92,16 @@ export function Deployments({ projectId }: { projectId: string }) {
     return null;
   };
 
-  const requestDeploy = (deployment: Deployment, commandsOnly = false) => {
-    if (status.user.hasPin) setPinFor({ deployment, commandsOnly });
-    else void start(deployment, undefined, commandsOnly);
+  const requestDeploy = (deployment: Deployment, kind: RunKind = "deploy") => {
+    if (status.user.hasPin) setPinFor({ deployment, kind, force: false });
+    else void start(deployment, undefined, kind);
+  };
+
+  const toggleHistory = async (deployment: Deployment) => {
+    if (historyFor === deployment.id) return setHistoryFor(null);
+    setHistoryFor(deployment.id);
+    setHistory(null);
+    setHistory(await getDeployRuns(deployment.id));
   };
 
   const stop = async (runId: string) => {
@@ -162,7 +178,15 @@ export function Deployments({ projectId }: { projectId: string }) {
                       </Button>
                     ) : (
                       <>
-                        <Button size="sm" icon={<TerminalSquare className="size-3.5" />} onClick={() => requestDeploy(deployment, true)} title="Run only the server commands — no build, no upload">
+                        <IconButton label="Run history" onClick={() => void toggleHistory(deployment)} className={cx(historyFor === deployment.id && "text-accent")}>
+                          <History className="size-3.5" />
+                        </IconButton>
+                        {deployment.mode === "image" && (
+                          <IconButton label="Roll back to the previous image" onClick={() => requestDeploy(deployment, "rollback")} className="hover:text-warn">
+                            <Undo2 className="size-3.5" />
+                          </IconButton>
+                        )}
+                        <Button size="sm" icon={<TerminalSquare className="size-3.5" />} onClick={() => requestDeploy(deployment, "commands")} title="Run only the server commands — no build, no upload">
                           Run commands
                         </Button>
                         <Button size="sm" variant="primary" icon={<Rocket className="size-3.5" />} onClick={() => requestDeploy(deployment)}>
@@ -207,6 +231,34 @@ export function Deployments({ projectId }: { projectId: string }) {
                   </div>
                 )}
 
+                {historyFor === deployment.id && (
+                  <div className="mt-2 border-t border-line pt-2">
+                    <p className="mb-1.5 text-[11px] font-medium text-ink-dim">Last runs</p>
+                    {history === null ? (
+                      <Spinner label="Loading…" />
+                    ) : history.length === 0 ? (
+                      <p className="text-[11px] text-ink-faint">No runs yet.</p>
+                    ) : (
+                      <div className="divide-y divide-line">
+                        {history.map((run) => {
+                          const tone = runTone(run);
+                          const seconds = run.finishedAt ? Math.round((new Date(run.finishedAt).getTime() - new Date(run.startedAt).getTime()) / 1000) : null;
+                          return (
+                            <button key={run.id} type="button" onClick={() => void showRun(run)} className="flex w-full items-center gap-2 py-1.5 text-left text-[11px] hover:text-ink">
+                              <Dot tone={tone.tone} pulse={tone.tone === "warn"} />
+                              <span className={cx("w-16", tone.tone === "success" && "text-success", tone.tone === "danger" && "text-danger", tone.tone === "warn" && "text-warn")}>{tone.label}</span>
+                              <span className="w-20 capitalize text-ink-dim">{run.kind}</span>
+                              <span className="text-ink-dim">{new Date(run.startedAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                              {seconds !== null && <span className="text-ink-faint">· {Math.floor(seconds / 60)}m {seconds % 60}s</span>}
+                              {run.username && <span className="ml-auto text-ink-faint">{run.username}</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {live && (
                   <div className="mt-2 border-t border-line pt-2">
                     <button type="button" onClick={() => setLogOpen((open) => !open)} className="flex items-center gap-1 text-[11px] text-ink-dim hover:text-ink">
@@ -231,7 +283,21 @@ export function Deployments({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      {pinFor && <PinPrompt deployment={pinFor.deployment} commandsOnly={pinFor.commandsOnly} onClose={() => setPinFor(null)} onSubmit={(pin) => start(pinFor.deployment, pin, pinFor.commandsOnly)} />}
+      {pinFor && <PinPrompt deployment={pinFor.deployment} kind={pinFor.kind} onClose={() => setPinFor(null)} onSubmit={(pin) => start(pinFor.deployment, pin, pinFor.kind, pinFor.force)} />}
+
+      {gitWarning && (
+        <Dialog title="Working tree is not clean" onClose={() => setGitWarning(null)} width="max-w-[460px]">
+          <p className="text-[13px] leading-5 text-ink-dim">{gitWarning.message}</p>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setGitWarning(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" icon={<Rocket className="size-3.5" />} onClick={() => void start(gitWarning.deployment, gitWarning.pin, "deploy", true)}>
+              Deploy anyway
+            </Button>
+          </div>
+        </Dialog>
+      )}
 
       {editing && (
         <DeploymentDialog
@@ -258,6 +324,9 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
   const [buildContext, setBuildContext] = useState(deployment?.buildContext ?? "");
   const [dockerfile, setDockerfile] = useState(deployment?.dockerfile ?? "");
   const [platform, setPlatform] = useState(deployment?.platform ?? "");
+  const [envPath, setEnvPath] = useState(deployment?.envPath ?? ".env");
+  const [envContent, setEnvContent] = useState(deployment?.envContent ?? "");
+  const [requireCleanGit, setRequireCleanGit] = useState(deployment?.requireCleanGit ?? true);
   const [remotePath, setRemotePath] = useState(deployment?.remotePath ?? "");
   const [commands, setCommands] = useState(deployment?.commands ?? "");
   const [saving, setSaving] = useState(false);
@@ -276,7 +345,7 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
     event.preventDefault();
     setSaving(true);
     setError(null);
-    const result = await saveDeployment(projectId, deployment?.id ?? null, { serverId, name, mode, imageName, imageTag, buildContext, dockerfile, remotePath, commands, platform });
+    const result = await saveDeployment(projectId, deployment?.id ?? null, { serverId, name, mode, imageName, imageTag, buildContext, dockerfile, remotePath, commands, platform, envPath, envContent, requireCleanGit });
     setSaving(false);
     if (!result.ok) return setError(result.error);
     onSaved();
@@ -360,6 +429,25 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
           />
         </Field>
 
+        <div className="rounded-lg border border-line bg-bg p-3">
+          <p className="text-[12px] font-medium">Environment file</p>
+          <p className="mt-1 text-[11px] leading-4 text-ink-dim">Optional. Written to the server (relative to the project directory) before your commands run. Stored encrypted on this Mac.</p>
+          <Field label="File path" className="mt-3">
+            <Input value={envPath} onChange={(event) => setEnvPath(event.target.value)} placeholder=".env" className={mono} />
+          </Field>
+          <Field label="Contents" className="mt-3">
+            <Textarea value={envContent} onChange={(event) => setEnvContent(event.target.value)} rows={5} spellCheck={false} placeholder={"NODE_ENV=production\nAPI_URL=https://api.example.com"} className={mono} />
+          </Field>
+        </div>
+
+        <label className="flex items-start gap-2 text-[12px]">
+          <input type="checkbox" checked={requireCleanGit} onChange={(event) => setRequireCleanGit(event.target.checked)} className="mt-0.5 accent-[#2dd4bf]" />
+          <span>
+            <span className="font-medium">Require a clean git tree</span>
+            <span className="block text-[11px] text-ink-dim">Refuse to deploy when the project has uncommitted changes or is behind origin (you can still choose to deploy anyway).</span>
+          </span>
+        </label>
+
         {error && <ErrorNote>{error}</ErrorNote>}
 
         <div className="flex justify-end gap-2 border-t border-line pt-4">
@@ -375,7 +463,7 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
   );
 }
 
-export function PinPrompt({ deployment, commandsOnly, onClose, onSubmit }: { deployment: { name: string; serverName: string }; commandsOnly: boolean; onClose: () => void; onSubmit: (pin: string) => Promise<string | null> }) {
+export function PinPrompt({ deployment, kind, onClose, onSubmit }: { deployment: { name: string; serverName: string }; kind: RunKind | "pipeline"; onClose: () => void; onSubmit: (pin: string) => Promise<string | null> }) {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -393,7 +481,7 @@ export function PinPrompt({ deployment, commandsOnly, onClose, onSubmit }: { dep
   };
 
   return (
-    <Dialog title={commandsOnly ? `Run commands for ${deployment.name}?` : `Deploy ${deployment.name}?`} description={`Enter your 4-digit passphrase to ${commandsOnly ? "run the server commands on" : "deploy to"} ${deployment.serverName}.`} onClose={onClose} width="max-w-[380px]">
+    <Dialog title={{ deploy: `Deploy ${deployment.name}?`, commands: `Run commands for ${deployment.name}?`, rollback: `Roll back ${deployment.name}?`, pipeline: `Run pipeline ${deployment.name}?` }[kind]} description={`Enter your 4-digit passphrase to continue on ${deployment.serverName}.`} onClose={onClose} width="max-w-[380px]">
       <form onSubmit={submit} className="space-y-4">
         <Input
           type="password"
@@ -411,7 +499,7 @@ export function PinPrompt({ deployment, commandsOnly, onClose, onSubmit }: { dep
             Cancel
           </Button>
           <Button type="submit" variant="primary" icon={<KeyRound className="size-3.5" />} busy={busy} disabled={pin.length !== 4}>
-            {commandsOnly ? "Run commands" : "Deploy"}
+            {{ deploy: "Deploy", commands: "Run commands", rollback: "Roll back", pipeline: "Run pipeline" }[kind]}
           </Button>
         </div>
       </form>

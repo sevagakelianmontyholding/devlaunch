@@ -13,6 +13,7 @@ export type Project = {
   liveUrl: string | null;
   composeFile: string | null;
   commands: Record<ComposeAction, string | null>;
+  notes: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -79,6 +80,55 @@ export type TerminalSettings = {
   installed: Array<{ id: Exclude<TerminalApp, "custom">; label: string; note: string | null }>;
 };
 
+export type NotificationSettings = {
+  desktop: boolean;
+  webhookUrl: string;
+};
+
+export type ServerHealth = {
+  id: string;
+  name: string;
+  reachable: boolean;
+  error: string | null;
+  arch: string | null;
+  dockerVersion: string | null;
+  disk: { used: string; total: string; percent: number } | null;
+  memory: { used: string; total: string } | null;
+  uptime: string | null;
+  containers: Array<{ name: string; status: string; image: string }>;
+  checkedAt: string;
+};
+
+export type PipelineStep = { deploymentId: string };
+
+export type Pipeline = {
+  id: string;
+  name: string;
+  steps: Array<{ deploymentId: string; deploymentName: string; projectId: string; projectName: string; serverName: string }>;
+  schedule: string | null;
+  enabled: boolean;
+  lastRunAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PipelineInput = {
+  name: string;
+  deploymentIds: string[];
+  schedule: string;
+  enabled: boolean;
+};
+
+export type PipelineRun = {
+  id: string;
+  pipelineId: string;
+  status: RunStatus;
+  currentStep: number;
+  steps: Array<{ deploymentId: string; deploymentName: string; runId: string | null; status: RunStatus | "pending" }>;
+  startedAt: string;
+  finishedAt: string | null;
+};
+
 export type SessionUser = {
   id: string;
   username: string;
@@ -95,6 +145,7 @@ export type Status = {
   activeActions: Record<string, ActiveAction>;
   terminal: TerminalSettings;
   deployments: Record<string, DeploymentSummary[]>;
+  activePipelines: Record<string, PipelineRun>;
   user: SessionUser;
 };
 
@@ -132,6 +183,9 @@ export type Deployment = {
   remotePath: string;
   commands: string;
   platform: string | null;
+  envPath: string;
+  envContent: string;
+  requireCleanGit: boolean;
   createdAt: string;
   updatedAt: string;
   lastRun: DeployRunSummary | null;
@@ -148,13 +202,20 @@ export type DeploymentInput = {
   remotePath: string;
   commands: string;
   platform: string;
+  envPath: string;
+  envContent: string;
+  requireCleanGit: boolean;
 };
 
 export type RunStatus = "running" | "success" | "error" | "cancelled";
 
+export type RunKind = "deploy" | "commands" | "rollback";
+
 export type DeployRunSummary = {
   id: string;
   status: RunStatus;
+  kind: RunKind;
+  username: string | null;
   startedAt: string;
   finishedAt: string | null;
 };

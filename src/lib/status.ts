@@ -3,6 +3,7 @@ import path from "node:path";
 import { dataDir } from "./db";
 import { activeDeploysByProject, deploymentSummariesByProject } from "./deploy";
 import { activeActionsByProject } from "./docker";
+import { activePipelineRunsById, ensureScheduler } from "./pipelines";
 import { getTerminalSettings } from "./terminal";
 import { listProjects } from "./projects";
 import { run } from "./shell";
@@ -64,6 +65,7 @@ async function runtimeFor(project: Project, groups: Map<string, DockerGroup>): P
 }
 
 export async function getStatus(user: SessionUser): Promise<Status> {
+  ensureScheduler();
   const projects = listProjects();
   const docker = await dockerGroups();
   const runtimes = await Promise.all(projects.map((project) => runtimeFor(project, docker.groups)));
@@ -77,6 +79,7 @@ export async function getStatus(user: SessionUser): Promise<Status> {
     activeActions: activeActionsByProject(),
     terminal: getTerminalSettings(),
     deployments: deploymentSummariesByProject(),
+    activePipelines: activePipelineRunsById(),
     user,
   };
 }

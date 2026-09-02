@@ -20,8 +20,12 @@ export const dynamic = "force-dynamic";
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const user = await currentUser();
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <body>
+        <script
+          // Apply the saved theme before paint so the light theme does not flash dark.
+          dangerouslySetInnerHTML={{ __html: `try{if(localStorage.getItem('devlaunch:theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}` }}
+        />
         {user ? (
           <StatusProvider initial={await getStatus(user)}>
             <AppShell>{children}</AppShell>

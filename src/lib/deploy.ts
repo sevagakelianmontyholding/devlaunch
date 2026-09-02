@@ -5,11 +5,13 @@ import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
 import { db, now } from "./db";
+import { decrypt, encrypt } from "./crypto";
+import { notifyFinished } from "./notify";
 import { formatBytes } from "./format";
 import { getProject } from "./projects";
 import { getServerRow, sshArgs, writeKey, type ServerRow } from "./servers";
 import { killProcessGroup, newControl, run, shQuote, spawnTracked, stream, UserError, waitForExit, type ProcessControl } from "./shell";
-import type { ActiveDeploy, DeployMode, DeployRun, DeployRunSummary, Deployment, DeploymentInput, DeploymentSummary, UploadProgress } from "./types";
+import type { ActiveDeploy, DeployMode, DeployRun, DeployRunSummary, Deployment, DeploymentInput, DeploymentSummary, RunKind, UploadProgress } from "./types";
 
 const LOG_LIMIT = 200_000;
 const SAFE_IMAGE = /^[a-z0-9][a-z0-9._/-]*$/;
@@ -31,6 +33,9 @@ type Row = {
   remote_path: string;
   commands: string;
   platform: string | null;
+  env_path: string | null;
+  env_encrypted: string | null;
+  require_clean_git: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -40,6 +45,8 @@ type RunRow = {
   deployment_id: string;
   project_id: string;
   status: DeployRun["status"];
+  kind: RunKind | null;
+  username: string | null;
   log: string;
   started_at: string;
   finished_at: string | null;
@@ -53,8 +60,14 @@ const activeRuns = (globalState.devlaunchRuns ??= new Map());
 
 function summary(run: RunRow | DeployRun): DeployRunSummary {
   return "started_at" in run
-    ? { id: run.id, status: run.status, startedAt: run.started_at, finishedAt: run.finished_at }
-    : { id: run.id, status: run.status, startedAt: run.startedAt, finishedAt: run.finishedAt };
+    ? { id: run.id, status: run.status, kind: run.kind ?? "deploy", username: run.username, startedAt: run.started_at, finishedAt: run.finished_at }
+    : { id: run.id, status: run.status, kind: run.kind, username: run.username, startedAt: run.startedAt, finishedAt: run.finishedAt };
+}
+
+export function listRuns(deploymentId: string): DeployRunSummary[] {
+  const active = [...activeRuns.values()].filter(({ run }) => run.deploymentId === deploymentId && run.status === "running").map(({ run }) => summary(run));
+  const rows = db().prepare("SELECT * FROM deploy_runs WHERE deployment_id = ? ORDER BY started_at DESC LIMIT 10").all(deploymentId) as RunRow[];
+  return [...active, ...rows.filter((row) => !active.some((item) => item.id === row.id)).map(summary)];
 }
 
 function lastRunFor(deploymentId: string): DeployRunSummary | null {
@@ -82,6 +95,9 @@ function fromRow(row: Row): Deployment {
     remotePath: row.remote_path,
     commands: row.commands,
     platform: row.platform,
+    envPath: row.env_path ?? ".env",
+    envContent: row.env_encrypted ? decrypt(row.env_encrypted) : "",
+    requireCleanGit: row.require_clean_git !== "0",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     lastRun: lastRunFor(row.id),
@@ -141,13 +157,17 @@ function validate(input: DeploymentInput) {
   const dockerfile = input.dockerfile.trim() || null;
   const platform = input.platform.trim() || null;
   if (platform && !SAFE_PLATFORM.test(platform)) throw new UserError("Choose a supported target platform");
+  const envPath = input.envPath.trim() || ".env";
+  if (!SAFE_RELATIVE.test(envPath) || envPath.includes("..")) throw new UserError("The env file path must be relative to the project directory");
+  const envContent = input.envContent.replace(/\r\n/g, "\n");
+  if (envContent.length > 64_000) throw new UserError("The env file is too large");
   if (input.mode === "image") {
     if (!imageName || !SAFE_IMAGE.test(imageName)) throw new UserError("Enter a valid lowercase image name");
     if (imageTag && !SAFE_TAG.test(imageTag)) throw new UserError("Enter a valid image tag");
     if (buildContext && !SAFE_RELATIVE.test(buildContext)) throw new UserError("The build context must be a relative folder");
     if (dockerfile && !SAFE_RELATIVE.test(dockerfile)) throw new UserError("The Dockerfile must be a relative path");
   }
-  return { name, mode: input.mode, remotePath, commands, imageName, imageTag, buildContext, dockerfile, platform };
+  return { name, mode: input.mode, remotePath, commands, imageName, imageTag, buildContext, dockerfile, platform, envPath, envContent, requireCleanGit: input.requireCleanGit };
 }
 
 export function createDeployment(projectId: string, input: DeploymentInput): Deployment {
@@ -158,8 +178,8 @@ export function createDeployment(projectId: string, input: DeploymentInput): Dep
   const timestamp = now();
   db()
     .prepare(
-      `INSERT INTO deployments (id, project_id, server_id, name, mode, image_name, image_tag, build_context, dockerfile, remote_path, commands, platform, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO deployments (id, project_id, server_id, name, mode, image_name, image_tag, build_context, dockerfile, remote_path, commands, platform, env_path, env_encrypted, require_clean_git, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -174,6 +194,9 @@ export function createDeployment(projectId: string, input: DeploymentInput): Dep
       deployment.remotePath,
       deployment.commands,
       deployment.platform,
+      deployment.envPath,
+      deployment.envContent ? encrypt(deployment.envContent) : null,
+      deployment.requireCleanGit ? "1" : "0",
       timestamp,
       timestamp,
     );
@@ -187,7 +210,7 @@ export function updateDeployment(id: string, input: DeploymentInput): Deployment
   db()
     .prepare(
       `UPDATE deployments SET server_id = ?, name = ?, mode = ?, image_name = ?, image_tag = ?, build_context = ?,
-       dockerfile = ?, remote_path = ?, commands = ?, platform = ?, updated_at = ? WHERE id = ?`,
+       dockerfile = ?, remote_path = ?, commands = ?, platform = ?, env_path = ?, env_encrypted = ?, require_clean_git = ?, updated_at = ? WHERE id = ?`,
     )
     .run(
       server.id,
@@ -200,6 +223,9 @@ export function updateDeployment(id: string, input: DeploymentInput): Deployment
       deployment.remotePath,
       deployment.commands,
       deployment.platform,
+      deployment.envPath,
+      deployment.envContent ? encrypt(deployment.envContent) : null,
+      deployment.requireCleanGit ? "1" : "0",
       now(),
       id,
     );
@@ -227,6 +253,8 @@ export function getRun(id: string): DeployRun {
     deploymentId: row.deployment_id,
     projectId: row.project_id,
     status: row.status,
+    kind: row.kind ?? "deploy",
+    username: row.username,
     log: row.log,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
@@ -248,10 +276,10 @@ function persist(run: DeployRun) {
   const database = db();
   database
     .prepare(
-      `INSERT INTO deploy_runs (id, deployment_id, project_id, status, log, started_at, finished_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO deploy_runs (id, deployment_id, project_id, status, kind, username, log, started_at, finished_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(run.id, run.deploymentId, run.projectId, run.status, run.log, run.startedAt, run.finishedAt);
+    .run(run.id, run.deploymentId, run.projectId, run.status, run.kind, run.username, run.log, run.startedAt, run.finishedAt);
   database
     .prepare(
       `DELETE FROM deploy_runs WHERE deployment_id = ? AND id NOT IN (
@@ -380,7 +408,8 @@ async function run_(command: string, args: string[]) {
   return stdout;
 }
 
-async function execute(run: DeployRun, config: Row, server: ServerRow, projectPath: string, control: ProcessControl, commandsOnly: boolean) {
+async function execute(run: DeployRun, config: Row, server: ServerRow, projectPath: string, control: ProcessControl, kind: RunKind) {
+  const commandsOnly = kind !== "deploy";
   const log = (chunk: string) => (run.log = (run.log + chunk).slice(-LOG_LIMIT));
   const step = (title: string) => log(`\n▶ ${title}\n`);
   await writeKey(server.id, server.private_key);
@@ -401,12 +430,29 @@ async function execute(run: DeployRun, config: Row, server: ServerRow, projectPa
     if (await serverHasImage(image, server, control)) {
       step(`${server.name} already has this exact image — skipping the upload`);
     } else {
+      // Keep the outgoing image as :previous so a bad deploy can be rolled back.
+      await stream("ssh", [...sshArgs(server), `docker tag ${shQuote(image)} ${shQuote(`${config.image_name}:previous`)} 2>/dev/null || true`], { timeoutMs: 30_000, onOutput: log, control });
       run.phase = "uploading";
       step(`Uploading ${image} to ${server.name} over SSH`);
       await pushImage(run, image, server, control, log);
     }
   }
-  if (commandsOnly) step("Commands only — no build or upload");
+  if (kind === "commands") step("Commands only — no build or upload");
+  if (kind === "rollback") {
+    if (config.mode !== "image") throw new Error("Rollback only applies to image deployments");
+    const image = `${config.image_name}:${config.image_tag || "latest"}`;
+    const previous = `${config.image_name}:previous`;
+    step(`Rolling back ${image} to the previous image on ${server.name}`);
+    await stream("ssh", [...sshArgs(server), `docker image inspect ${shQuote(previous)} >/dev/null 2>&1 && docker tag ${shQuote(previous)} ${shQuote(image)} || { echo 'No previous image on the server yet'; exit 1; }`], { timeoutMs: 30_000, onOutput: log, control });
+  }
+  if (config.env_encrypted) {
+    const envPath = config.env_path || ".env";
+    step(`Writing ${envPath} on ${server.name}`);
+    const content = decrypt(config.env_encrypted);
+    const target = `${config.remote_path.replace(/\/$/, "")}/${envPath}`;
+    const b64 = Buffer.from(content, "utf8").toString("base64");
+    await stream("ssh", [...sshArgs(server), `mkdir -p $(dirname ${shQuote(target)}) && echo ${shQuote(b64)} | base64 -d > ${shQuote(target)} && chmod 600 ${shQuote(target)}`], { timeoutMs: 30_000, onOutput: log, control });
+  }
 
   const lines = commandLines(config.commands);
   const remote = `cd ${shQuote(config.remote_path)} && ${lines.join(" && ")}`;
@@ -416,7 +462,34 @@ async function execute(run: DeployRun, config: Row, server: ServerRow, projectPa
   await stream("ssh", [...sshArgs(server), remote], { timeoutMs: 20 * 60_000, onOutput: log, control });
 }
 
-export async function startRun(deploymentId: string, commandsOnly = false): Promise<DeployRun> {
+// Refuses to build from a working tree with uncommitted changes or commits not yet
+// pulled, so what ships matches the repository. Returns null when there is no git repo.
+export async function gitProblems(projectPath: string): Promise<string | null> {
+  try {
+    const { stdout: top } = await run("git", ["-C", projectPath, "rev-parse", "--show-toplevel"], { timeoutMs: 5000 });
+    const repo = top.trim();
+    if (!repo) return null;
+    const { stdout: porcelain } = await run("git", ["-C", repo, "status", "--porcelain"], { timeoutMs: 10_000 });
+    const changed = porcelain.split("\n").filter(Boolean).length;
+    let behind = 0;
+    try {
+      await run("git", ["-C", repo, "fetch", "--quiet"], { timeoutMs: 20_000 });
+      const { stdout } = await run("git", ["-C", repo, "rev-list", "--count", "HEAD..@{upstream}"], { timeoutMs: 5000 });
+      behind = Number(stdout.trim()) || 0;
+    } catch {
+      // No upstream or offline: only the local state can be checked.
+    }
+    const problems = [];
+    if (changed > 0) problems.push(`${changed} uncommitted change${changed === 1 ? "" : "s"}`);
+    if (behind > 0) problems.push(`${behind} commit${behind === 1 ? "" : "s"} behind origin`);
+    return problems.length ? problems.join(" and ") : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function startRun(deploymentId: string, options: { kind?: RunKind; force?: boolean; username?: string } = {}): Promise<DeployRun> {
+  const kind = options.kind ?? "deploy";
   const config = getRow(deploymentId);
   for (const { run } of activeRuns.values()) {
     if (run.deploymentId === deploymentId && run.status === "running") {
@@ -426,13 +499,19 @@ export async function startRun(deploymentId: string, commandsOnly = false): Prom
   const project = getProject(config.project_id);
   if (!project) throw new UserError("Project not found");
   const server = getServerRow(config.server_id);
+  if (kind === "deploy" && config.require_clean_git !== "0" && !options.force) {
+    const problems = await gitProblems(path.resolve(project.path));
+    if (problems) throw new UserError(`GIT_CHECK:${project.name} has ${problems}. Commit and pull first, or deploy anyway.`);
+  }
 
   const run: DeployRun = {
     id: randomUUID(),
     deploymentId,
     projectId: config.project_id,
     status: "running",
-    log: `${commandsOnly ? "Running commands for" : "Deploying"} ${config.name} → ${server.name} (${server.username}@${server.host})\n`,
+    kind,
+    username: options.username ?? null,
+    log: `${{ deploy: "Deploying", commands: "Running commands for", rollback: "Rolling back" }[kind]} ${config.name} → ${server.name} (${server.username}@${server.host})\n`,
     startedAt: now(),
     finishedAt: null,
     phase: null,
@@ -443,7 +522,7 @@ export async function startRun(deploymentId: string, commandsOnly = false): Prom
 
   void (async () => {
     try {
-      await execute(run, config, server, path.resolve(project.path), control, commandsOnly);
+      await execute(run, config, server, path.resolve(project.path), control, kind);
       run.status = "success";
       run.log += "\n✔ Deployed\n";
     } catch (error) {
@@ -452,6 +531,12 @@ export async function startRun(deploymentId: string, commandsOnly = false): Prom
     } finally {
       run.finishedAt = now();
       run.phase = null;
+      const seconds = Math.round((Date.now() - new Date(run.startedAt).getTime()) / 1000);
+      void notifyFinished(
+        `${project.name} · ${config.name}`,
+        run.status === "success" ? `${kind === "deploy" ? "Deployed" : kind === "rollback" ? "Rolled back" : "Commands finished"} in ${Math.floor(seconds / 60)}m ${seconds % 60}s` : run.status === "cancelled" ? "Cancelled" : `Failed: ${run.log.trim().split("\n").at(-1) ?? "see the log"}`,
+        run.status === "success",
+      );
       try {
         persist(run);
       } catch {

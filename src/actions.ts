@@ -119,10 +119,10 @@ export async function removeDeployment(id: string): Promise<ActionResult<Deploym
   return attempt(() => deleteDeployment(id));
 }
 
-export async function deploy(deploymentId: string, pin?: string): Promise<ActionResult<DeployRun>> {
+export async function deploy(deploymentId: string, pin?: string, commandsOnly = false): Promise<ActionResult<DeployRun>> {
   return attempt((user) => {
     verifyDeployPin(user.id, pin);
-    return startRun(deploymentId);
+    return startRun(deploymentId, commandsOnly);
   });
 }
 

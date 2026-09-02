@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, ChevronUp, KeyRound, Pencil, Plus, Rocket, Server, Square, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, KeyRound, Pencil, Plus, Rocket, Server, Square, TerminalSquare, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deploy, getDeployments, getServers, removeDeployment, saveDeployment, stopDeploy } from "@/actions";
 import type { DeployMode, DeployRun, DeployRunSummary, Deployment, Server as DeployServer } from "@/lib/types";
@@ -21,7 +21,7 @@ function runTone(run: DeployRunSummary | null) {
 
 export function Deployments({ projectId }: { projectId: string }) {
   const { status, notify, refresh } = useStatus();
-  const [pinFor, setPinFor] = useState<Deployment | null>(null);
+  const [pinFor, setPinFor] = useState<{ deployment: Deployment; commandsOnly: boolean } | null>(null);
   const [deployments, setDeployments] = useState<Deployment[] | null>(null);
   const [editing, setEditing] = useState<Deployment | "new" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -69,8 +69,8 @@ export function Deployments({ projectId }: { projectId: string }) {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
   }, [watched?.log]);
 
-  const start = async (deployment: Deployment, pin?: string): Promise<string | null> => {
-    const result = await deploy(deployment.id, pin);
+  const start = async (deployment: Deployment, pin: string | undefined, commandsOnly: boolean): Promise<string | null> => {
+    const result = await deploy(deployment.id, pin, commandsOnly);
     if (!result.ok) {
       if (pin === undefined) notify("error", result.error);
       return result.error;
@@ -83,9 +83,9 @@ export function Deployments({ projectId }: { projectId: string }) {
     return null;
   };
 
-  const requestDeploy = (deployment: Deployment) => {
-    if (status.user.hasPin) setPinFor(deployment);
-    else void start(deployment);
+  const requestDeploy = (deployment: Deployment, commandsOnly = false) => {
+    if (status.user.hasPin) setPinFor({ deployment, commandsOnly });
+    else void start(deployment, undefined, commandsOnly);
   };
 
   const stop = async (runId: string) => {
@@ -161,9 +161,14 @@ export function Deployments({ projectId }: { projectId: string }) {
                         Stop
                       </Button>
                     ) : (
-                      <Button size="sm" variant="primary" icon={<Rocket className="size-3.5" />} onClick={() => requestDeploy(deployment)}>
-                        Deploy
-                      </Button>
+                      <>
+                        <Button size="sm" icon={<TerminalSquare className="size-3.5" />} onClick={() => requestDeploy(deployment, true)} title="Run only the server commands — no build, no upload">
+                          Run commands
+                        </Button>
+                        <Button size="sm" variant="primary" icon={<Rocket className="size-3.5" />} onClick={() => requestDeploy(deployment)}>
+                          Deploy
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -226,7 +231,7 @@ export function Deployments({ projectId }: { projectId: string }) {
         </div>
       )}
 
-      {pinFor && <PinPrompt deployment={pinFor} onClose={() => setPinFor(null)} onSubmit={(pin) => start(pinFor, pin)} />}
+      {pinFor && <PinPrompt deployment={pinFor.deployment} commandsOnly={pinFor.commandsOnly} onClose={() => setPinFor(null)} onSubmit={(pin) => start(pinFor.deployment, pin, pinFor.commandsOnly)} />}
 
       {editing && (
         <DeploymentDialog
@@ -370,7 +375,7 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
   );
 }
 
-function PinPrompt({ deployment, onClose, onSubmit }: { deployment: Deployment; onClose: () => void; onSubmit: (pin: string) => Promise<string | null> }) {
+function PinPrompt({ deployment, commandsOnly, onClose, onSubmit }: { deployment: Deployment; commandsOnly: boolean; onClose: () => void; onSubmit: (pin: string) => Promise<string | null> }) {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -388,7 +393,7 @@ function PinPrompt({ deployment, onClose, onSubmit }: { deployment: Deployment; 
   };
 
   return (
-    <Dialog title={`Deploy ${deployment.name}?`} description={`Enter your 4-digit passphrase to deploy to ${deployment.serverName}.`} onClose={onClose} width="max-w-[380px]">
+    <Dialog title={commandsOnly ? `Run commands for ${deployment.name}?` : `Deploy ${deployment.name}?`} description={`Enter your 4-digit passphrase to ${commandsOnly ? "run the server commands on" : "deploy to"} ${deployment.serverName}.`} onClose={onClose} width="max-w-[380px]">
       <form onSubmit={submit} className="space-y-4">
         <Input
           type="password"
@@ -406,7 +411,7 @@ function PinPrompt({ deployment, onClose, onSubmit }: { deployment: Deployment; 
             Cancel
           </Button>
           <Button type="submit" variant="primary" icon={<KeyRound className="size-3.5" />} busy={busy} disabled={pin.length !== 4}>
-            Deploy
+            {commandsOnly ? "Run commands" : "Deploy"}
           </Button>
         </div>
       </form>

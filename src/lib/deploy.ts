@@ -331,6 +331,24 @@ async function pushImage(run: DeployRun, image: string, server: ServerRow, contr
   }
 }
 
+// Compares the image content hash locally and on the server so an unchanged
+// image is not uploaded again (e.g. when only the server commands changed).
+async function serverHasImage(image: string, server: ServerRow, control: ProcessControl) {
+  const localId = (await run_("docker", ["image", "inspect", "--format", "{{.Id}}", image])).trim();
+  let remote = "";
+  try {
+    await stream("ssh", [...sshArgs(server), `docker image inspect --format '{{.Id}}' ${shQuote(image)} 2>/dev/null || true`], {
+      timeoutMs: 30_000,
+      onOutput: (chunk) => (remote += chunk),
+      control,
+    });
+  } catch {
+    return false;
+  }
+  const remoteId = remote.trim().split("\n").at(-1) ?? "";
+  return Boolean(localId) && remoteId === localId;
+}
+
 // The image must match the server's CPU architecture, otherwise the container
 // starts and immediately dies with an exec format error.
 async function detectPlatform(server: ServerRow, control: ProcessControl) {
@@ -348,12 +366,12 @@ async function run_(command: string, args: string[]) {
   return stdout;
 }
 
-async function execute(run: DeployRun, config: Row, server: ServerRow, projectPath: string, control: ProcessControl) {
+async function execute(run: DeployRun, config: Row, server: ServerRow, projectPath: string, control: ProcessControl, commandsOnly: boolean) {
   const log = (chunk: string) => (run.log = (run.log + chunk).slice(-LOG_LIMIT));
   const step = (title: string) => log(`\n▶ ${title}\n`);
   await writeKey(server.id, server.private_key);
 
-  if (config.mode === "image") {
+  if (config.mode === "image" && !commandsOnly) {
     const image = `${config.image_name}:${config.image_tag || "latest"}`;
     const context = path.resolve(projectPath, config.build_context || ".");
     if (!context.startsWith(projectPath)) throw new Error("The build context must stay inside the project folder");
@@ -366,10 +384,15 @@ async function execute(run: DeployRun, config: Row, server: ServerRow, projectPa
     step(`Building ${image} for ${platform}${config.platform ? "" : " (detected on the server)"}`);
     await stream("docker", args, { cwd: projectPath, timeoutMs: 30 * 60_000, onOutput: log, control });
 
-    run.phase = "uploading";
-    step(`Uploading ${image} to ${server.name} over SSH`);
-    await pushImage(run, image, server, control, log);
+    if (await serverHasImage(image, server, control)) {
+      step(`${server.name} already has this exact image — skipping the upload`);
+    } else {
+      run.phase = "uploading";
+      step(`Uploading ${image} to ${server.name} over SSH`);
+      await pushImage(run, image, server, control, log);
+    }
   }
+  if (commandsOnly) step("Commands only — no build or upload");
 
   const lines = commandLines(config.commands);
   const remote = `cd ${shQuote(config.remote_path)} && ${lines.join(" && ")}`;
@@ -379,7 +402,7 @@ async function execute(run: DeployRun, config: Row, server: ServerRow, projectPa
   await stream("ssh", [...sshArgs(server), remote], { timeoutMs: 20 * 60_000, onOutput: log, control });
 }
 
-export async function startRun(deploymentId: string): Promise<DeployRun> {
+export async function startRun(deploymentId: string, commandsOnly = false): Promise<DeployRun> {
   const config = getRow(deploymentId);
   for (const { run } of activeRuns.values()) {
     if (run.deploymentId === deploymentId && run.status === "running") {
@@ -395,7 +418,7 @@ export async function startRun(deploymentId: string): Promise<DeployRun> {
     deploymentId,
     projectId: config.project_id,
     status: "running",
-    log: `Deploying ${config.name} → ${server.name} (${server.username}@${server.host})\n`,
+    log: `${commandsOnly ? "Running commands for" : "Deploying"} ${config.name} → ${server.name} (${server.username}@${server.host})\n`,
     startedAt: now(),
     finishedAt: null,
     phase: null,
@@ -406,7 +429,7 @@ export async function startRun(deploymentId: string): Promise<DeployRun> {
 
   void (async () => {
     try {
-      await execute(run, config, server, path.resolve(project.path), control);
+      await execute(run, config, server, path.resolve(project.path), control, commandsOnly);
       run.status = "success";
       run.log += "\n✔ Deployed\n";
     } catch (error) {

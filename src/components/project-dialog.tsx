@@ -1,9 +1,9 @@
 "use client";
 
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, TerminalSquare } from "lucide-react";
 import { useState } from "react";
 import { pickProjectFolder, saveProject } from "@/actions";
-import type { Project, Section } from "@/lib/types";
+import type { ComposeAction, Project, Section } from "@/lib/types";
 import { useStatus } from "./status-provider";
 import { Button, Dialog, ErrorNote, Field, Input, Segmented } from "./ui";
 
@@ -22,6 +22,13 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
   const [localUrl, setLocalUrl] = useState(project?.localUrl ?? "");
   const [testingUrl, setTestingUrl] = useState(project?.testingUrl ?? "");
   const [liveUrl, setLiveUrl] = useState(project?.liveUrl ?? "");
+  const [composeFile, setComposeFile] = useState(project?.composeFile ?? "");
+  const [commands, setCommands] = useState<Record<ComposeAction, string>>({
+    start: project?.commands.start ?? "",
+    stop: project?.commands.stop ?? "",
+    restart: project?.commands.restart ?? "",
+    rebuild: project?.commands.rebuild ?? "",
+  });
   const [browsing, setBrowsing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +55,8 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
       localUrl,
       testingUrl,
       liveUrl,
+      composeFile,
+      commands,
     });
     setSaving(false);
     if (!result.ok) return setError(result.error);
@@ -98,6 +107,37 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
           <Field label="Live URL" hint="optional">
             <Input value={liveUrl} onChange={(event) => setLiveUrl(event.target.value)} placeholder="https://my-app.com" inputMode="url" className="font-mono text-[12px]" />
           </Field>
+        </div>
+
+        <div className="rounded-lg border border-line bg-bg p-3">
+          <p className="flex items-center gap-1.5 text-[12px] font-medium">
+            <TerminalSquare className="size-3.5 text-accent" /> Local commands
+          </p>
+          <p className="mt-1 text-[11px] leading-4 text-ink-dim">
+            Nothing is detected automatically. Set a compose file to get the default docker compose commands, and/or write your own — each runs in the project folder with your login shell.
+          </p>
+          <Field label="Compose file" hint="relative to the project, optional" className="mt-3">
+            <Input value={composeFile} onChange={(event) => setComposeFile(event.target.value)} placeholder="docker-compose.yml" className="font-mono text-[12px]" />
+          </Field>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            {(
+              [
+                ["start", "up -d"],
+                ["stop", "stop"],
+                ["restart", "restart"],
+                ["rebuild", "up -d --build"],
+              ] as Array<[ComposeAction, string]>
+            ).map(([action, suffix]) => (
+              <Field key={action} label={`${action[0]!.toUpperCase()}${action.slice(1)} command`} hint="optional">
+                <Input
+                  value={commands[action]}
+                  onChange={(event) => setCommands((current) => ({ ...current, [action]: event.target.value }))}
+                  placeholder={composeFile.trim() ? `docker compose -f ${composeFile.trim()} ${suffix}` : "not configured"}
+                  className="font-mono text-[12px]"
+                />
+              </Field>
+            ))}
+          </div>
         </div>
 
         {error && <ErrorNote>{error}</ErrorNote>}

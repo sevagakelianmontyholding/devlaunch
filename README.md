@@ -2,7 +2,7 @@
 
 A local developer command center for macOS. One Next.js app running on your Mac that shows every registered project with its Docker Compose status, starts and stops services, opens folders in VS Code, and deploys to your own servers over SSH with one click.
 
-Everything lives on this Mac. There is no cloud, no accounts, and no scanning: projects are only what you add.
+Everything lives on this Mac. There is no cloud and no scanning: projects are only what you add, and DevLaunch only runs the commands you configure. A local account (created on first run) protects the UI, with an optional 4-digit passphrase on Deploy.
 
 ## Requirements
 
@@ -44,6 +44,10 @@ The `data/` folder (database and SSH keys) is left in place; delete it yourself 
 ## Serving it as devlaunch.localhost
 
 If Nginx Proxy Manager (or any reverse proxy) runs in Docker, add a proxy host for `devlaunch.localhost` that forwards to `host.docker.internal` on port `3000` over HTTP. `host.docker.internal` is how a container reaches the Mac itself.
+
+## Local commands
+
+Per project you set an optional **compose file** (relative path) and optional **start / stop / restart / rebuild commands**. With a compose file, the defaults are `docker compose -f <file> up -d`, `stop`, `restart`, and `up -d --build`; a custom command replaces the default for that action. Commands run in the project folder with your login shell. Nothing is detected automatically.
 
 ## Deployments
 

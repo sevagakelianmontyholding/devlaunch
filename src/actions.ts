@@ -71,11 +71,8 @@ export async function pickProjectFolder(): Promise<ActionResult<string>> {
 }
 
 // Docker / editor
-export async function runCompose(id: string, action: ComposeAction): Promise<ActionResult> {
-  return attempt(async () => {
-    await composeAction(id, action);
-    return undefined;
-  });
+export async function runCompose(id: string, action: ComposeAction): Promise<ActionResult<string>> {
+  return attempt(() => composeAction(id, action));
 }
 
 export async function openProject(id: string): Promise<ActionResult> {

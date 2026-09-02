@@ -16,6 +16,11 @@ const schema = `
     local_url TEXT,
     testing_url TEXT,
     live_url TEXT,
+    compose_file TEXT,
+    start_command TEXT,
+    stop_command TEXT,
+    restart_command TEXT,
+    rebuild_command TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   );
@@ -84,7 +89,9 @@ export function db() {
   const columns = (connection.prepare("PRAGMA table_info(deployments)").all() as Array<{ name: string }>).map((c) => c.name);
   if (!columns.includes("platform")) connection.exec("ALTER TABLE deployments ADD COLUMN platform TEXT");
   const projectColumns = (connection.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>).map((c) => c.name);
-  if (!projectColumns.includes("testing_url")) connection.exec("ALTER TABLE projects ADD COLUMN testing_url TEXT");
+  for (const column of ["testing_url", "compose_file", "start_command", "stop_command", "restart_command", "rebuild_command"]) {
+    if (!projectColumns.includes(column)) connection.exec(`ALTER TABLE projects ADD COLUMN ${column} TEXT`);
+  }
   globalState.devlaunchDb = connection;
   return connection;
 }

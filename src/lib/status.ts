@@ -6,8 +6,6 @@ import { listProjects } from "./projects";
 import { run } from "./shell";
 import type { Container, Project, ProjectRuntime, SessionUser, Status } from "./types";
 
-const composeFileNames = ["docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"];
-
 export async function exists(target: string) {
   try {
     await access(target);
@@ -15,13 +13,6 @@ export async function exists(target: string) {
   } catch {
     return false;
   }
-}
-
-export async function findComposeFile(projectPath: string) {
-  for (const name of composeFileNames) {
-    if (await exists(path.join(projectPath, name))) return path.join(projectPath, name);
-  }
-  return null;
 }
 
 type DockerGroup = { containers: Container[]; ports: Set<number> };
@@ -57,15 +48,13 @@ async function dockerGroups() {
 async function runtimeFor(project: Project, groups: Map<string, DockerGroup>): Promise<ProjectRuntime> {
   const projectPath = path.resolve(project.path);
   if (!(await exists(projectPath))) {
-    return { id: project.id, exists: false, composeFile: null, running: false, containers: [], ports: [] };
+    return { id: project.id, exists: false, running: false, containers: [], ports: [] };
   }
-  const composeFile = await findComposeFile(projectPath);
   const group = groups.get(projectPath);
   const containers = [...(group?.containers ?? [])].sort((a, b) => a.name.localeCompare(b.name));
   return {
     id: project.id,
     exists: true,
-    composeFile: composeFile ? path.basename(composeFile) : null,
     running: containers.some((container) => container.state === "running"),
     containers,
     ports: [...(group?.ports ?? [])].sort((a, b) => a - b),

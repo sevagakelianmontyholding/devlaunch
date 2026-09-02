@@ -45,7 +45,7 @@ export function ProjectView({ id }: { id: string }) {
     setConfirming(null);
     setBusy(action);
     const result = await runCompose(project.id, action);
-    notify(result.ok ? "success" : "error", result.ok ? `${{ start: "Started", stop: "Stopped", restart: "Restarted", rebuild: "Rebuilt" }[action]} ${project.name}` : result.error);
+    notify(result.ok ? "success" : "error", result.ok ? `${{ start: "Started", stop: "Stopped", restart: "Restarted", rebuild: "Rebuilt" }[action]} ${project.name} · ${result.data}` : result.error);
     await refresh();
     setBusy(null);
   };
@@ -69,7 +69,8 @@ export function ProjectView({ id }: { id: string }) {
   };
 
   const localUrl = project.localUrl ?? (runtime?.ports[0] ? `http://localhost:${runtime.ports[0]}` : null);
-  const canCompose = Boolean(runtime?.composeFile) && status.dockerAvailable;
+  const can = (action: ComposeAction) => Boolean(project.commands[action] || (project.composeFile && status.dockerAvailable));
+  const configured = Boolean(project.composeFile || project.commands.start);
 
   return (
     <div className="fade-up">
@@ -101,21 +102,25 @@ export function ProjectView({ id }: { id: string }) {
           Code
         </Button>
         {runtime?.running ? (
-          <Button icon={<Power className="size-4 text-danger" />} onClick={() => setConfirming("stop")} disabled={!canCompose} busy={busy === "stop"}>
+          <Button icon={<Power className="size-4 text-danger" />} onClick={() => setConfirming("stop")} disabled={!can("stop")} busy={busy === "stop"}>
             Stop
           </Button>
         ) : (
-          <Button icon={<Power className="size-4 text-success" />} onClick={() => void compose("start")} disabled={!canCompose} busy={busy === "start"}>
+          <Button icon={<Power className="size-4 text-success" />} onClick={() => void compose("start")} disabled={!can("start")} busy={busy === "start"}>
             Start
           </Button>
         )}
-        <Button icon={<RotateCw className="size-4" />} onClick={() => setConfirming("restart")} disabled={!canCompose || !runtime?.running} busy={busy === "restart"}>
+        <Button icon={<RotateCw className="size-4" />} onClick={() => setConfirming("restart")} disabled={!can("restart")} busy={busy === "restart"}>
           Restart
         </Button>
-        <Button icon={<Hammer className="size-4" />} onClick={() => setConfirming("rebuild")} disabled={!canCompose} busy={busy === "rebuild"}>
+        <Button icon={<Hammer className="size-4" />} onClick={() => setConfirming("rebuild")} disabled={!can("rebuild")} busy={busy === "rebuild"}>
           Rebuild
         </Button>
-        {!runtime?.composeFile && runtime?.exists && <span className="self-center text-[12px] text-ink-faint">No compose file at the project root.</span>}
+        {!configured && (
+          <button type="button" onClick={() => setEditing(true)} className="self-center text-[12px] text-ink-faint hover:text-accent hover:underline">
+            No commands configured — set a compose file or commands
+          </button>
+        )}
       </div>
 
       {confirming && confirming !== "remove" && (
@@ -162,11 +167,11 @@ export function ProjectView({ id }: { id: string }) {
                 ))}
               </div>
             ) : (
-              <p className="text-[12px] text-ink-faint">{runtime?.composeFile ? "No containers yet. Start the project to create them." : "No compose file found at the project root."}</p>
+              <p className="text-[12px] text-ink-faint">{configured ? "No containers yet. Start the project to create them." : "Containers created by docker compose from this folder appear here."}</p>
             )}
           </Card>
 
-          <LogsPanel projectId={project.id} enabled={Boolean(runtime?.composeFile)} />
+          <LogsPanel projectId={project.id} enabled={Boolean(project.composeFile)} />
         </div>
 
         <div className="space-y-4">
@@ -188,8 +193,13 @@ export function ProjectView({ id }: { id: string }) {
                 <span className="capitalize">{project.section}</span>
               </Row>
               <Row label="Compose file">
-                <span className="font-mono">{runtime?.composeFile ?? "—"}</span>
+                <span className="font-mono">{project.composeFile ?? "—"}</span>
               </Row>
+              {(Object.keys(project.commands) as ComposeAction[]).filter((action) => project.commands[action]).map((action) => (
+                <Row key={action} label={`${action[0]!.toUpperCase()}${action.slice(1)}`}>
+                  <span className="font-mono text-[11px]" title={project.commands[action]!}>{project.commands[action]}</span>
+                </Row>
+              ))}
               <Row label="Added">
                 <span>{new Date(project.createdAt).toLocaleDateString()}</span>
               </Row>

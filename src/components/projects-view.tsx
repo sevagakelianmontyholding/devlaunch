@@ -46,7 +46,7 @@ export function ProjectsView() {
   const toggleCompose = async (project: Project, runtime: ProjectRuntime | undefined) => {
     setBusyId(project.id);
     const result = await runCompose(project.id, runtime?.running ? "stop" : "start");
-    notify(result.ok ? "success" : "error", result.ok ? `${runtime?.running ? "Stopped" : "Started"} ${project.name}` : result.error);
+    notify(result.ok ? "success" : "error", result.ok ? `${runtime?.running ? "Stopped" : "Started"} ${project.name} · ${result.data}` : result.error);
     await refresh();
     setBusyId(null);
   };
@@ -158,9 +158,9 @@ function ProjectCard({
     ? { label: "Folder missing", tone: "danger" as const }
     : runtime.running
       ? { label: "Running", tone: "success" as const }
-      : runtime.composeFile
+      : project.composeFile || project.commands.start
         ? { label: "Stopped", tone: "muted" as const }
-        : { label: "No compose", tone: "muted" as const };
+        : { label: "No commands", tone: "muted" as const };
   const localUrl = project.localUrl ?? (runtime?.ports[0] ? `http://localhost:${runtime.ports[0]}` : null);
 
   return (
@@ -203,15 +203,15 @@ function ProjectCard({
       <div className="mt-auto flex items-center justify-between gap-2 pt-4">
         <span className="flex min-w-0 items-center gap-1.5 text-[11px] text-ink-faint">
           <FileCode2 className="size-3 shrink-0" />
-          <span className="truncate font-mono">{runtime?.composeFile ?? "no compose file"}</span>
+          <span className="truncate font-mono">{project.composeFile ?? (project.commands.start ? "custom commands" : "not configured")}</span>
         </span>
         <div className="flex items-center gap-0.5">
-          {runtime?.composeFile && (
+          {(project.composeFile || project.commands.start) && (
             <IconButton
-              label={runtime.running ? "Stop containers" : "Start containers"}
+              label={runtime?.running ? "Stop" : "Start"}
               onClick={onToggle}
-              disabled={busy || !dockerAvailable}
-              className={cx(runtime.running ? "text-success hover:text-danger" : "text-accent")}
+              disabled={busy || (!project.commands.start && !dockerAvailable)}
+              className={cx(runtime?.running ? "text-success hover:text-danger" : "text-accent")}
             >
               <Power className={cx("size-4", busy && "animate-pulse")} />
             </IconButton>

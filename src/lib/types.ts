@@ -1,4 +1,5 @@
 export type Section = "work" | "personal";
+export type ComposeAction = "start" | "stop" | "restart" | "rebuild";
 
 export type Project = {
   id: string;
@@ -10,6 +11,8 @@ export type Project = {
   localUrl: string | null;
   testingUrl: string | null;
   liveUrl: string | null;
+  composeFile: string | null;
+  commands: Record<ComposeAction, string | null>;
   createdAt: string;
   updatedAt: string;
 };
@@ -23,6 +26,8 @@ export type ProjectInput = {
   localUrl: string;
   testingUrl: string;
   liveUrl: string;
+  composeFile: string;
+  commands: Record<ComposeAction, string>;
 };
 
 export type Container = {
@@ -36,7 +41,6 @@ export type Container = {
 export type ProjectRuntime = {
   id: string;
   exists: boolean;
-  composeFile: string | null;
   running: boolean;
   containers: Container[];
   ports: number[];
@@ -57,8 +61,6 @@ export type Status = {
   activeDeploys: Record<string, ActiveDeploy>;
   user: SessionUser;
 };
-
-export type ComposeAction = "start" | "stop" | "restart" | "rebuild";
 
 export type Server = {
   id: string;

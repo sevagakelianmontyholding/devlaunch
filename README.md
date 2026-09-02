@@ -1,99 +1,69 @@
 # DevLaunch
 
-DevLaunch is a local developer command center built with Next.js, TypeScript, Tailwind CSS, Docker, and a small optional macOS companion agent.
+A local developer command center for macOS. One Next.js app running on your Mac that shows every registered project with its Docker Compose and Git status, starts and stops services, opens folders in VS Code, and deploys to your own servers over SSH with one click.
 
-The production frontend runs in Docker without publishing a host port. Nginx Proxy Manager reaches it through the existing external Docker network configured in `.env`. The companion agent remains on the Mac and provides access to local projects, Git, GitHub CLI accounts, Docker Compose, VS Code, and the native folder picker.
+Everything lives on this Mac. There is no cloud, no accounts, and no scanning: projects are only what you add.
 
 ## Requirements
 
-- macOS
-- Docker Desktop with Docker Compose
-- Node.js and npm
-- An existing Nginx Proxy Manager Docker network, normally `npm`
-- Visual Studio Code for the Code action
-- GitHub CLI for private repository details
+- macOS with Node.js 22+ and npm
+- Docker Desktop (for Compose controls and image builds)
+- Visual Studio Code (for the Code button)
 
-## Install on a new Mac
+## Install
 
 ```bash
-cp .env.example .env
-```
-
-Edit `.env` for that Mac, especially `DEVLAUNCH_PROJECTS_ROOT` and `DEVLAUNCH_NPM_DB`, then run:
-
-```bash
-./install.sh
-```
-
-The installer:
-
-- verifies Docker and the existing external NPM network;
-- builds the local agent;
-- generates a machine-specific LaunchAgent outside the repository;
-- starts the agent at login;
-- builds and starts `docker-compose.prod.yml`;
-- verifies that the agent and frontend container are running.
-
-The installer never creates a replacement NPM network and never publishes frontend port 3000 to the host.
-
-In Nginx Proxy Manager, create a proxy host with:
-
-- Domain: `devlaunch.localhost`
-- Scheme: `http`
-- Forward hostname: the `DEVLAUNCH_CONTAINER_NAME` value
-- Forward port: `3000`
-
-## GitHub accounts
-
-Authenticate every GitHub account used by local repository SSH aliases:
-
-```bash
-gh auth login --hostname github.com
-```
-
-DevLaunch resolves aliases such as `github-work` and `github-personal` through SSH and uses the matching GitHub CLI account per repository without globally switching accounts.
-
-## Local data and privacy
-
-No project catalog, personal path, GitHub token, SSH key, or generated LaunchAgent is committed to the repository.
-
-- `.env` is ignored by Git.
-- Project metadata stays in `DEVLAUNCH_DATABASE_PATH`.
-- GitHub tokens stay in the macOS keychain through GitHub CLI.
-- The generated service definition stays in `~/Library/LaunchAgents`.
-- Agent logs stay in `~/Library/Logs/DevLaunch`.
-
-The first run imports folders from `DEVLAUNCH_PROJECTS_ROOT`. Add/Edit Project can then use automatic Git repository detection or an explicit selection of Root, frontend, backend, and other detected repository folders.
-
-## Production commands
-
-```bash
-docker compose --env-file .env -f docker-compose.prod.yml up -d --build
-docker compose --env-file .env -f docker-compose.prod.yml logs -f
-docker compose --env-file .env -f docker-compose.prod.yml down
-```
-
-After changing agent source:
-
-```bash
-cd agent
+git clone <this repo> devlaunch
+cd devlaunch
 npm ci
 npm run build
-launchctl kickstart -k gui/$(id -u)/com.devlaunch.agent
+npm run service:install
+```
+
+`service:install` registers a LaunchAgent that starts DevLaunch at login on `http://127.0.0.1:3000`. Open that URL, or put it behind your reverse proxy (see below).
+
+Optional settings go in `.env` (copy `.env.example`): the port, and where the data folder lives.
+
+## Update
+
+```bash
+git pull
+npm ci
+npm run build
+npm run service:install
 ```
 
 ## Uninstall
 
 ```bash
-./uninstall.sh
+npm run service:uninstall
 ```
 
-The uninstall script removes the frontend container and LaunchAgent but preserves `.env` and the local project database.
+The `data/` folder (database and SSH keys) is left in place; delete it yourself if you want a clean slate.
 
-## Local frontend development
+## Serving it as devlaunch.localhost
+
+If Nginx Proxy Manager (or any reverse proxy) runs in Docker, add a proxy host for `devlaunch.localhost` that forwards to `host.docker.internal` on port `3000` over HTTP. `host.docker.internal` is how a container reaches the Mac itself.
+
+## Deployments
+
+1. **Settings → Deploy servers → Add server**: name, host, SSH user, and the private key (paste it). Use **Test** to confirm SSH and Docker work on the server.
+2. **Project → Deployments → Add**: pick the server and a mode:
+   - **Image push** builds a Docker image locally, ships it over SSH (`docker save | ssh docker load`, no registry needed), then runs your commands.
+   - **Commands only** just runs your commands on the server.
+3. The commands are always yours — one per line, executed in order inside the project directory on the server, stopping at the first failure. Nothing runs automatically.
+
+Click **Deploy** to run it; the log streams live and a running deployment can be stopped.
+
+## Where things are stored
+
+- `data/devlaunch.sqlite` — projects, servers, deployments, and the last ten runs per deployment
+- `data/keys/` — server private keys, owner-only permissions
+
+Both are git-ignored.
+
+## Development
 
 ```bash
-cd frontend
-npm ci
 npm run dev
 ```

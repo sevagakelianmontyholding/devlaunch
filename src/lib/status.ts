@@ -1,0 +1,120 @@
+import { access } from "node:fs/promises";
+import path from "node:path";
+import { dataDir } from "./db";
+import { listProjects } from "./projects";
+import { run } from "./shell";
+import type { Container, GitStatus, Project, ProjectRuntime, Status } from "./types";
+
+const composeFileNames = ["docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"];
+
+export async function exists(target: string) {
+  try {
+    await access(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function findComposeFile(projectPath: string) {
+  for (const name of composeFileNames) {
+    if (await exists(path.join(projectPath, name))) return path.join(projectPath, name);
+  }
+  return null;
+}
+
+type DockerGroup = { containers: Container[]; ports: Set<number> };
+
+async function dockerGroups() {
+  const groups = new Map<string, DockerGroup>();
+  try {
+    const { stdout } = await run("docker", [
+      "ps",
+      "-a",
+      "--filter",
+      "label=com.docker.compose.project.working_dir",
+      "--format",
+      '{{.ID}}\t{{.Names}}\t{{.State}}\t{{.Status}}\t{{.Ports}}\t{{.Label "com.docker.compose.project.working_dir"}}',
+    ]);
+    for (const line of stdout.split("\n")) {
+      const [id = "", name = "", state = "", status = "", ports = "", workingDir = ""] = line.split("\t");
+      if (!workingDir) continue;
+      const key = path.resolve(workingDir);
+      const group = groups.get(key) ?? { containers: [], ports: new Set<number>() };
+      group.containers.push({ id, name, state, status, ports });
+      for (const match of ports.matchAll(/(?:0\.0\.0\.0|127\.0\.0\.1|\[::\]):(\d+)->/g)) {
+        group.ports.add(Number(match[1]));
+      }
+      groups.set(key, group);
+    }
+    return { available: true, groups };
+  } catch {
+    return { available: false, groups };
+  }
+}
+
+async function gitStatus(projectPath: string): Promise<GitStatus | null> {
+  if (!(await exists(path.join(projectPath, ".git")))) return null;
+  const git = (args: string[]) => run("git", ["-C", projectPath, ...args], { timeoutMs: 4000 });
+  try {
+    const [branch, porcelain, commit] = await Promise.all([
+      git(["branch", "--show-current"]),
+      git(["status", "--porcelain"]),
+      git(["log", "-1", "--format=%h%x09%s%x09%aI"]).catch(() => ({ stdout: "" })),
+    ]);
+    let ahead = 0;
+    let behind = 0;
+    try {
+      const { stdout } = await git(["rev-list", "--left-right", "--count", "HEAD...@{upstream}"]);
+      const [left, right] = stdout.trim().split(/\s+/).map(Number);
+      ahead = left ?? 0;
+      behind = right ?? 0;
+    } catch {
+      // No upstream configured.
+    }
+    const changed = porcelain.stdout.split("\n").filter(Boolean).length;
+    const [hash, message, authoredAt] = commit.stdout.trim().split("\t");
+    return {
+      branch: branch.stdout.trim() || "detached",
+      dirty: changed > 0,
+      changedFiles: changed,
+      ahead,
+      behind,
+      lastCommit: hash ? { hash, message: message ?? "", authoredAt: authoredAt ?? "" } : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function runtimeFor(project: Project, groups: Map<string, DockerGroup>): Promise<ProjectRuntime> {
+  const projectPath = path.resolve(project.path);
+  if (!(await exists(projectPath))) {
+    return { id: project.id, exists: false, composeFile: null, running: false, containers: [], ports: [], git: null };
+  }
+  const [composeFile, git] = await Promise.all([findComposeFile(projectPath), gitStatus(projectPath)]);
+  const group = groups.get(projectPath);
+  const containers = [...(group?.containers ?? [])].sort((a, b) => a.name.localeCompare(b.name));
+  return {
+    id: project.id,
+    exists: true,
+    composeFile: composeFile ? path.basename(composeFile) : null,
+    running: containers.some((container) => container.state === "running"),
+    containers,
+    ports: [...(group?.ports ?? [])].sort((a, b) => a - b),
+    git,
+  };
+}
+
+export async function getStatus(): Promise<Status> {
+  const projects = listProjects();
+  const docker = await dockerGroups();
+  const runtimes = await Promise.all(projects.map((project) => runtimeFor(project, docker.groups)));
+  return {
+    checkedAt: new Date().toISOString(),
+    dockerAvailable: docker.available,
+    dataDir,
+    projects,
+    runtimes: Object.fromEntries(runtimes.map((runtime) => [runtime.id, runtime])),
+  };
+}

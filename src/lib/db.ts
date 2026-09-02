@@ -1,0 +1,76 @@
+import Database from "better-sqlite3";
+import { mkdirSync } from "node:fs";
+import path from "node:path";
+
+export const dataDir = path.resolve(process.env.DEVLAUNCH_DATA_DIR ?? path.join(process.cwd(), "data"));
+export const keysDir = path.join(dataDir, "keys");
+
+const schema = `
+  CREATE TABLE IF NOT EXISTS projects (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    section TEXT NOT NULL CHECK (section IN ('work', 'personal')),
+    description TEXT NOT NULL DEFAULT '',
+    stack_json TEXT NOT NULL DEFAULT '[]',
+    path TEXT NOT NULL UNIQUE,
+    local_url TEXT,
+    live_url TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS servers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    host TEXT NOT NULL,
+    port INTEGER NOT NULL DEFAULT 22,
+    username TEXT NOT NULL,
+    private_key TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS deployments (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    server_id TEXT NOT NULL REFERENCES servers(id),
+    name TEXT NOT NULL,
+    mode TEXT NOT NULL CHECK (mode IN ('image', 'commands')),
+    image_name TEXT,
+    image_tag TEXT,
+    build_context TEXT,
+    dockerfile TEXT,
+    remote_path TEXT NOT NULL,
+    commands TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS deploy_runs (
+    id TEXT PRIMARY KEY,
+    deployment_id TEXT NOT NULL REFERENCES deployments(id) ON DELETE CASCADE,
+    project_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('running', 'success', 'error', 'cancelled')),
+    log TEXT NOT NULL DEFAULT '',
+    started_at TEXT NOT NULL,
+    finished_at TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_deployments_project ON deployments(project_id);
+  CREATE INDEX IF NOT EXISTS idx_runs_deployment ON deploy_runs(deployment_id, started_at);
+`;
+
+// One connection per process. Next.js keeps module state across requests in
+// production and reloads modules in development, so cache on globalThis.
+const globalState = globalThis as unknown as { devlaunchDb?: Database.Database };
+
+export function db() {
+  if (globalState.devlaunchDb) return globalState.devlaunchDb;
+  mkdirSync(keysDir, { recursive: true, mode: 0o700 });
+  const connection = new Database(path.join(dataDir, "devlaunch.sqlite"));
+  connection.pragma("journal_mode = WAL");
+  connection.pragma("foreign_keys = ON");
+  connection.exec(schema);
+  globalState.devlaunchDb = connection;
+  return connection;
+}
+
+export function now() {
+  return new Date().toISOString();
+}

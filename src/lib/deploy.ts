@@ -331,13 +331,16 @@ async function pushImage(run: DeployRun, image: string, server: ServerRow, contr
   }
 }
 
-// Compares the image content hash locally and on the server so an unchanged
-// image is not uploaded again (e.g. when only the server commands changed).
+// Compares the image's layer digests locally and on the server so an unchanged
+// image is not uploaded again. Layer digests are engine-independent, unlike
+// image IDs (Docker Desktop's containerd store and classic overlay2 disagree).
+const layersFormat = "{{range .RootFS.Layers}}{{.}} {{end}}";
+
 async function serverHasImage(image: string, server: ServerRow, control: ProcessControl) {
-  const localId = (await run_("docker", ["image", "inspect", "--format", "{{.Id}}", image])).trim();
+  const local = (await run_("docker", ["image", "inspect", "--format", layersFormat, image])).trim();
   let remote = "";
   try {
-    await stream("ssh", [...sshArgs(server), `docker image inspect --format '{{.Id}}' ${shQuote(image)} 2>/dev/null || true`], {
+    await stream("ssh", [...sshArgs(server), `docker image inspect --format '${layersFormat}' ${shQuote(image)} 2>/dev/null || true`], {
       timeoutMs: 30_000,
       onOutput: (chunk) => (remote += chunk),
       control,
@@ -345,8 +348,8 @@ async function serverHasImage(image: string, server: ServerRow, control: Process
   } catch {
     return false;
   }
-  const remoteId = remote.trim().split("\n").at(-1) ?? "";
-  return Boolean(localId) && remoteId === localId;
+  const remoteLayers = remote.trim().split("\n").at(-1)?.trim() ?? "";
+  return Boolean(local) && remoteLayers === local;
 }
 
 // The image must match the server's CPU architecture, otherwise the container

@@ -30,7 +30,6 @@ export function ProjectsView() {
         (project) =>
           !needle ||
           project.name.toLowerCase().includes(needle) ||
-          project.stack.some((item) => item.toLowerCase().includes(needle)) ||
           project.path.toLowerCase().includes(needle),
       )
       .sort((a, b) => {
@@ -93,14 +92,14 @@ export function ProjectsView() {
           <div className="mb-6 flex flex-wrap items-center gap-3">
             <div className="relative min-w-[240px] flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-ink-faint" />
-              <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by name, stack, or path" className="pl-9" />
+              <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by name or path" className="pl-9" />
             </div>
             <Segmented value={filter} onChange={setFilter} options={[{ value: "all", label: "All" }, { value: "work", label: "Work" }, { value: "personal", label: "Personal" }]} />
             <Segmented value={sort} onChange={setSort} options={[{ value: "running", label: "Running first" }, { value: "name", label: "A–Z" }]} />
           </div>
 
           {visible.length === 0 ? (
-            <Empty icon={<Search className="size-4" />} title="No matches" hint="Try another name, stack, or path." />
+            <Empty icon={<Search className="size-4" />} title="No matches" hint="Try another name or path." />
           ) : (
             <div className="space-y-8">
               {sections
@@ -197,17 +196,7 @@ function ProjectCard({
         </div>
       </div>
 
-      <p className="mt-3 line-clamp-2 min-h-[2.5rem] text-[12px] leading-5 text-ink-dim">{project.description || <span className="text-ink-faint">No description</span>}</p>
-
-      {project.stack.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1">
-          {project.stack.map((item) => (
-            <span key={item} className="rounded-md border border-line px-1.5 py-0.5 text-[11px] text-ink-dim">
-              {item}
-            </span>
-          ))}
-        </div>
-      )}
+      <p className="mt-3 truncate font-mono text-[11px] text-ink-faint" title={project.path}>{project.path.replace(/^\/Users\/[^/]+/, "~")}</p>
 
       {deploy && <DeployStrip deploy={deploy} />}
       {action && !deploy && <ActionStrip action={action} />}

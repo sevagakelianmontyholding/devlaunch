@@ -10,8 +10,6 @@ const schema = `
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     section TEXT NOT NULL CHECK (section IN ('work', 'personal')),
-    description TEXT NOT NULL DEFAULT '',
-    stack_json TEXT NOT NULL DEFAULT '[]',
     path TEXT NOT NULL UNIQUE,
     local_url TEXT,
     testing_url TEXT,

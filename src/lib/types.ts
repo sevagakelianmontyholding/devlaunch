@@ -5,8 +5,6 @@ export type Project = {
   id: string;
   name: string;
   section: Section;
-  description: string;
-  stack: string[];
   path: string;
   localUrl: string | null;
   testingUrl: string | null;
@@ -21,8 +19,6 @@ export type Project = {
 export type ProjectInput = {
   name: string;
   section: Section;
-  description: string;
-  stack: string[];
   path: string;
   localUrl: string;
   testingUrl: string;

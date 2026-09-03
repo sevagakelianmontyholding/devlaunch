@@ -17,8 +17,6 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
   const [path, setPath] = useState(project?.path ?? "");
   const [name, setName] = useState(project?.name ?? "");
   const [section, setSection] = useState<Section>(project?.section ?? "work");
-  const [description, setDescription] = useState(project?.description ?? "");
-  const [stack, setStack] = useState(project?.stack.join(", ") ?? "");
   const [localUrl, setLocalUrl] = useState(project?.localUrl ?? "");
   const [testingUrl, setTestingUrl] = useState(project?.testingUrl ?? "");
   const [liveUrl, setLiveUrl] = useState(project?.liveUrl ?? "");
@@ -50,8 +48,6 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
       path,
       name,
       section,
-      description,
-      stack: stack.split(",").map((item) => item.trim()).filter(Boolean),
       localUrl,
       testingUrl,
       liveUrl,
@@ -88,14 +84,6 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
             </div>
           </Field>
         </div>
-
-        <Field label="Description" hint="optional">
-          <Input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="What this project is" maxLength={300} />
-        </Field>
-
-        <Field label="Stack" hint="comma separated">
-          <Input value={stack} onChange={(event) => setStack(event.target.value)} placeholder="Next.js, Postgres, Docker" />
-        </Field>
 
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label="Local URL" hint="optional">

@@ -12,8 +12,6 @@ type Row = {
   id: string;
   name: string;
   section: Section;
-  description: string;
-  stack_json: string;
   path: string;
   local_url: string | null;
   testing_url: string | null;
@@ -33,8 +31,6 @@ function fromRow(row: Row): Project {
     id: row.id,
     name: row.name,
     section: row.section,
-    description: row.description,
-    stack: JSON.parse(row.stack_json) as string[],
     path: row.path,
     localUrl: row.local_url,
     testingUrl: row.testing_url,
@@ -87,9 +83,6 @@ async function validate(input: ProjectInput) {
   const name = input.name.trim();
   if (!name || name.length > 80) throw new UserError("Enter a project name (max 80 characters)");
   if (input.section !== "work" && input.section !== "personal") throw new UserError("Choose a section");
-  const description = input.description.trim().slice(0, 300);
-  const stack = [...new Set(input.stack.map((item) => item.trim()).filter(Boolean))].slice(0, 8);
-  if (stack.some((item) => item.length > 30)) throw new UserError("Stack labels must be 30 characters or fewer");
   const composeFile = input.composeFile.trim() || null;
   if (composeFile && (!/^[A-Za-z0-9._/-]+$/.test(composeFile) || composeFile.includes(".."))) {
     throw new UserError("The compose file must be a path relative to the project, like docker/compose.yml");
@@ -106,8 +99,6 @@ async function validate(input: ProjectInput) {
     commands,
     name,
     section: input.section,
-    description,
-    stack,
     path: await resolveFolder(input.path),
     localUrl: optionalUrl(input.localUrl, "Local URL"),
     testingUrl: optionalUrl(input.testingUrl, "Testing URL"),
@@ -139,15 +130,13 @@ export async function createProject(input: ProjectInput): Promise<Project> {
   const timestamp = now();
   db()
     .prepare(
-      `INSERT INTO projects (id, name, section, description, stack_json, path, local_url, testing_url, live_url, compose_file, start_command, stop_command, restart_command, rebuild_command, created_at, updated_at)
-       VALUES (@id, @name, @section, @description, @stack, @path, @localUrl, @testingUrl, @liveUrl, @composeFile, @start, @stop, @restart, @rebuild, @createdAt, @updatedAt)`,
+      `INSERT INTO projects (id, name, section, path, local_url, testing_url, live_url, compose_file, start_command, stop_command, restart_command, rebuild_command, created_at, updated_at)
+       VALUES (@id, @name, @section, @path, @localUrl, @testingUrl, @liveUrl, @composeFile, @start, @stop, @restart, @rebuild, @createdAt, @updatedAt)`,
     )
     .run({
       id,
       name: project.name,
       section: project.section,
-      description: project.description,
-      stack: JSON.stringify(project.stack),
       path: project.path,
       localUrl: project.localUrl,
       testingUrl: project.testingUrl,
@@ -168,16 +157,13 @@ export async function updateProject(id: string, input: ProjectInput): Promise<Pr
   }
   db()
     .prepare(
-      `UPDATE projects SET name = @name, section = @section, description = @description, stack_json = @stack,
-       path = @path, local_url = @localUrl, testing_url = @testingUrl, live_url = @liveUrl, compose_file = @composeFile,
+      `UPDATE projects SET name = @name, section = @section, path = @path, local_url = @localUrl, testing_url = @testingUrl, live_url = @liveUrl, compose_file = @composeFile,
        start_command = @start, stop_command = @stop, restart_command = @restart, rebuild_command = @rebuild, updated_at = @updatedAt WHERE id = @id`,
     )
     .run({
       id,
       name: project.name,
       section: project.section,
-      description: project.description,
-      stack: JSON.stringify(project.stack),
       path: project.path,
       localUrl: project.localUrl,
       testingUrl: project.testingUrl,

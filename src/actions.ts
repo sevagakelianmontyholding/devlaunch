@@ -1,6 +1,7 @@
 "use server";
 
 import { changePassword, createFirstUser, requireUser, setDeployPin, signIn, signOut, verifyDeployPin } from "@/lib/auth";
+import { getDashboard as loadDashboard } from "@/lib/dashboard";
 import { cancelRun, createDeployment, deleteDeployment, listDeployments, listRuns, startRun, updateDeployment } from "@/lib/deploy";
 import { getNotificationSettings, saveNotificationSettings, sendTestNotification } from "@/lib/notify";
 import { activePipelineRunsById, deletePipeline, listPipelines, savePipeline, startPipeline } from "@/lib/pipelines";
@@ -12,6 +13,7 @@ import { UserError } from "@/lib/shell";
 import type {
   ActionResult,
   ComposeAction,
+  DashboardData,
   DeployRun,
   DeployRunSummary,
   Deployment,
@@ -108,6 +110,12 @@ export async function openProjectTerminal(id: string): Promise<ActionResult> {
 
 export async function updateTerminalSettings(app: TerminalApp, customCommand: string): Promise<ActionResult<TerminalSettings>> {
   return attempt(() => saveTerminalSettings(app, customCommand));
+}
+
+// Dashboard
+export async function getDashboard(): Promise<DashboardData> {
+  await requireUser();
+  return loadDashboard();
 }
 
 // Servers

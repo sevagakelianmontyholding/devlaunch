@@ -246,3 +246,18 @@ export type ActiveDeploy = {
 export type ActionResult<T = undefined> =
   | { ok: true; data: T }
   | { ok: false; error: string };
+
+export type RecentRun = DeployRunSummary & {
+  deploymentId: string;
+  deploymentName: string;
+  projectId: string;
+  projectName: string;
+  serverName: string;
+};
+
+export type DashboardData = {
+  recentRuns: RecentRun[];
+  week: { success: number; error: number; cancelled: number };
+  servers: Server[];
+  pipelines: Pipeline[];
+};

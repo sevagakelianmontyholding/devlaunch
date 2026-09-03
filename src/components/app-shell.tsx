@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Boxes, FolderKanban, LogOut, Server, Settings, UserRound, Workflow, Zap } from "lucide-react";
+import { Boxes, FolderKanban, LayoutDashboard, LogOut, Server, Settings, UserRound, Workflow, Zap } from "lucide-react";
 import { CommandPalette } from "./command-palette";
 import { logout } from "@/actions";
 import type { ReactNode } from "react";
@@ -19,7 +19,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 
   const nav = [
-    { href: "/", label: "Projects", icon: FolderKanban, count: status.projects.length, active: pathname === "/" || pathname.startsWith("/projects") },
+    { href: "/", label: "Dashboard", icon: LayoutDashboard, count: null, active: pathname === "/" },
+    { href: "/projects", label: "Projects", icon: FolderKanban, count: status.projects.length, active: pathname.startsWith("/projects") },
     { href: "/services", label: "Services", icon: Boxes, count: runningContainers, active: pathname === "/services" },
     { href: "/servers", label: "Servers", icon: Server, count: null, active: pathname === "/servers" },
     { href: "/pipelines", label: "Pipelines", icon: Workflow, count: null, active: pathname === "/pipelines" },

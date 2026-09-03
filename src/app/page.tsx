@@ -1,5 +1,5 @@
-import { ProjectsView } from "@/components/projects-view";
+import { DashboardView } from "@/components/dashboard-view";
 
-export default function ProjectsPage() {
-  return <ProjectsView />;
+export default function DashboardPage() {
+  return <DashboardView />;
 }

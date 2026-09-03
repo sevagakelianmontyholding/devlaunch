@@ -61,7 +61,7 @@ export function ProjectView({ id }: { id: string }) {
         title="Project not found"
         hint="It may have been removed."
         action={
-          <Link href="/" className="text-[12px] font-medium text-accent hover:underline">
+          <Link href="/projects" className="text-[12px] font-medium text-accent hover:underline">
             Back to projects
           </Link>
         }
@@ -91,7 +91,7 @@ export function ProjectView({ id }: { id: string }) {
     }
     notify("success", `${project.name} removed from DevLaunch`);
     await refresh();
-    navigate("/");
+    navigate("/projects");
   };
 
   const open = async () => {
@@ -110,7 +110,7 @@ export function ProjectView({ id }: { id: string }) {
 
   return (
     <div className="fade-up">
-      <Link href="/" className="mb-4 inline-flex items-center gap-1.5 text-[12px] text-ink-dim transition hover:text-ink">
+      <Link href="/projects" className="mb-4 inline-flex items-center gap-1.5 text-[12px] text-ink-dim transition hover:text-ink">
         <ArrowLeft className="size-3.5" /> Projects
       </Link>
 

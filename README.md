@@ -78,6 +78,7 @@ Settings → Notifications: a macOS notification and/or a Slack or Discord webho
 
 ## Everything else
 
+- The **Dashboard** (home page) shows what is happening right now, the last deployments, server reachability, pipelines, and a quick start/stop list of your projects.
 - **Servers** shows the health of every deploy server (reachability, CPU architecture, Docker version, disk, memory, uptime, running containers) next to its Test/Edit/Remove controls; **Services** shows the containers on this Mac.
 - **Notes** on each project page for the things you always forget.
 - **⌘K** opens a command palette: jump to a project or page, start/stop, open in VS Code or a terminal.

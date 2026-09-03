@@ -263,7 +263,7 @@ export function DashboardView() {
             .
           </p>
         ) : (
-          <div className="grid gap-x-6 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {[...projects]
               .sort((a, b) => Number(Boolean(runtimes[b.id]?.running)) - Number(Boolean(runtimes[a.id]?.running)) || a.name.localeCompare(b.name))
               .map((project) => {
@@ -273,7 +273,7 @@ export function DashboardView() {
                 const active = status.activeActions[project.id];
                 const deploy = status.activeDeploys[project.id];
                 return (
-                  <div key={project.id} className="flex items-center gap-3 border-b border-line py-2.5 last:border-b-0 sm:[&:nth-last-child(-n+2)]:border-b-0 xl:[&:nth-last-child(-n+3)]:border-b-0">
+                  <div key={project.id} className="flex items-center gap-3 rounded-lg border border-line bg-bg px-3 py-2.5 transition hover:border-line-strong">
                     <Monogram name={project.name} size="sm" />
                     <div className="min-w-0 flex-1">
                       <Link href={`/projects/${project.id}`} className="block truncate text-[13px] font-medium hover:text-accent">

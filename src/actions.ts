@@ -14,7 +14,7 @@ import { saveTerminalSettings } from "@/lib/terminal";
 import { createProject, deleteProject, pickFolder, saveNotes, uniqueId, updateProject } from "@/lib/projects";
 import { applyTemplateDeployments, createTemplateFromProject, deleteTemplate, fillProjectInput, getTemplate, listTemplates } from "@/lib/templates";
 import path from "node:path";
-import { createServer, deleteServer, listServers, serverHealth, testServer, updateServer } from "@/lib/servers";
+import { createServer, deleteServer, listServers, openServerTerminal as openSsh, serverHealth, testServer, updateServer } from "@/lib/servers";
 import { UserError } from "@/lib/shell";
 import type {
   ActionResult,
@@ -225,6 +225,13 @@ export async function deploy(deploymentId: string, pin?: string, kind: RunKind =
 export async function getDeployRuns(deploymentId: string): Promise<DeployRunSummary[]> {
   await requireUser();
   return listRuns(deploymentId);
+}
+
+export async function openServerTerminal(serverId: string, remotePath?: string | null): Promise<ActionResult> {
+  return attempt(async () => {
+    await openSsh(serverId, remotePath);
+    return undefined;
+  });
 }
 
 // Servers health

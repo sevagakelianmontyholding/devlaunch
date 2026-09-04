@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ChevronDown, ChevronUp, HeartPulse, History, KeyRound, Pencil, Plus, Rocket, Server, Square, TerminalSquare, Trash2, Undo2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { deploy, getDeployRuns, getDeployments, getServers, removeDeployment, saveDeployment, stopDeploy } from "@/actions";
+import { deploy, getDeployRuns, getDeployments, getServers, openServerTerminal, removeDeployment, saveDeployment, stopDeploy } from "@/actions";
 import type { DeployMode, DeployRun, DeployRunSummary, Deployment, RunKind, Server as DeployServer } from "@/lib/types";
 import { useStatus } from "./status-provider";
 import { Button, Card, CardTitle, Confirm, Dialog, Dot, ErrorNote, Field, IconButton, Input, Select, Spinner, Textarea, cx } from "./ui";
@@ -171,6 +171,15 @@ export function Deployments({ projectId }: { projectId: string }) {
                     <Server className="size-3" /> {deployment.serverName}
                   </span>
                   <div className="ml-auto flex items-center gap-1">
+                    <IconButton
+                      label={`SSH to ${deployment.serverName} in ${deployment.remotePath}`}
+                      onClick={async () => {
+                        const result = await openServerTerminal(deployment.serverId, deployment.remotePath);
+                        if (!result.ok) notify("error", result.error);
+                      }}
+                    >
+                      <TerminalSquare className="size-3.5" />
+                    </IconButton>
                     <IconButton label="Edit deployment" onClick={() => setEditing(deployment)}>
                       <Pencil className="size-3.5" />
                     </IconButton>

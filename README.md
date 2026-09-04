@@ -56,7 +56,7 @@ Each person should use their **own** SSH key — never share private keys.
 2. Authorize it on the VPS by adding the contents of `~/.ssh/devlaunch.pub` to `~/.ssh/authorized_keys` there (or `ssh-copy-id -i ~/.ssh/devlaunch.pub user@host` if you can already log in).
 3. In DevLaunch, **Servers → Add server**: name, host, SSH user, and paste the private key (`cat ~/.ssh/devlaunch`). Click **Test** — it should report the connection and the server's Docker versions.
 
-Keys are stored in `data/keys/` with owner-only permissions and are used solely for SSH from this Mac.
+Keys are stored in `data/keys/` with owner-only permissions and are used solely for SSH from this Mac. The **SSH** button on a server card, and the terminal icon on a deployment, open an interactive session in your terminal app (landing in the project directory for a deployment).
 
 ## Deployments
 

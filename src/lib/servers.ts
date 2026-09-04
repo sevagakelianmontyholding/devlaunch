@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { db, keysDir, now } from "./db";
-import { stream, UserError } from "./shell";
+import { shQuote, stream, UserError } from "./shell";
+import { openScriptInTerminal } from "./terminal";
 import type { DeployLock, Server, ServerHealth, ServerInput } from "./types";
 
 export type ServerRow = {
@@ -199,4 +200,19 @@ export function parseLock(text: string): DeployLock | null {
   } catch {
     return null;
   }
+}
+
+// Opens an interactive SSH session to the server in the user's terminal,
+// landing in remotePath when given, using the key stored for this server.
+export async function openServerTerminal(id: string, remotePath?: string | null) {
+  const server = getServerRow(id);
+  await writeKey(id, server.private_key);
+  const target = remotePath?.trim() || "";
+  const remote = target ? `cd ${shQuote(target)} 2>/dev/null || echo "Directory not found: ${target.replaceAll('"', "")}"; exec "$SHELL" -l` : 'exec "$SHELL" -l';
+  const script = [
+    "clear",
+    `echo "Connecting to ${server.name.replaceAll('"', "")} (${server.username}@${server.host})…"`,
+    `exec ssh -i ${shQuote(keyPath(server.id))} -p ${server.port} -o StrictHostKeyChecking=accept-new -t ${shQuote(`${server.username}@${server.host}`)} ${shQuote(remote)}`,
+  ].join("\n");
+  await openScriptInTerminal(`ssh-${server.name}`, script);
 }

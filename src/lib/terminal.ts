@@ -1,5 +1,7 @@
-import { existsSync } from "node:fs";
-import { db } from "./db";
+import { createHash } from "node:crypto";
+import { chmodSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { dataDir, db } from "./db";
 import { run, UserError } from "./shell";
 import type { TerminalApp, TerminalSettings } from "./types";
 
@@ -60,4 +62,26 @@ export async function openFolderInTerminal(folder: string) {
   }
   const [command, args] = apps[settings.app].open(folder);
   await run(command, args, { timeoutMs: 15_000 });
+}
+
+// Runs a shell script in a new window of the preferred terminal. Terminal,
+// iTerm2 and Warp open a .command file; the others take the command as an
+// argument. Termius and custom commands fall back to Terminal.
+export async function openScriptInTerminal(name: string, script: string) {
+  const dir = path.join(dataDir, "terminal");
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const file = path.join(dir, `${name.replace(/[^A-Za-z0-9._-]+/g, "-")}-${createHash("sha1").update(script).digest("hex").slice(0, 8)}.command`);
+  writeFileSync(file, `#!/bin/zsh\n${script}\n`);
+  chmodSync(file, 0o700);
+  const app = getTerminalSettings().app;
+  const args: Record<string, [string, string[]]> = {
+    terminal: ["open", ["-a", "Terminal", file]],
+    iterm: ["open", ["-a", "iTerm", file]],
+    warp: ["open", ["-a", "Warp", file]],
+    ghostty: ["open", ["-na", "Ghostty", "--args", "-e", file]],
+    kitty: ["open", ["-na", "kitty", "--args", file]],
+    alacritty: ["open", ["-na", "Alacritty", "--args", "-e", file]],
+  };
+  const [command, commandArgs] = args[app] ?? args.terminal!;
+  await run(command, commandArgs, { timeoutMs: 15_000 });
 }

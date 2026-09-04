@@ -1,8 +1,8 @@
 "use client";
 
-import { Cpu, HardDrive, KeyRound, Lock, Pencil, Plus, RefreshCw, Server, Trash2, Wifi } from "lucide-react";
+import { Cpu, HardDrive, KeyRound, Lock, Pencil, Plus, RefreshCw, Server, TerminalSquare, Trash2, Wifi } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { checkServer, getServerHealth, getServers, removeServer, saveServer } from "@/actions";
+import { checkServer, getServerHealth, getServers, openServerTerminal, removeServer, saveServer } from "@/actions";
 import type { Server as DeployServer, ServerHealth } from "@/lib/types";
 import { PageHeader } from "./app-shell";
 import { useStatus } from "./status-provider";
@@ -136,6 +136,17 @@ export function ServersView() {
                 <div className="mt-3 flex items-center gap-1 border-t border-line pt-3">
                   <Button size="sm" icon={<Wifi className="size-3.5" />} onClick={() => void test(server)} busy={testing === server.id}>
                     Test
+                  </Button>
+                  <Button
+                    size="sm"
+                    icon={<TerminalSquare className="size-3.5" />}
+                    title="Open an SSH session in your terminal"
+                    onClick={async () => {
+                      const result = await openServerTerminal(server.id);
+                      if (!result.ok) notify("error", result.error);
+                    }}
+                  >
+                    SSH
                   </Button>
                   <div className="ml-auto flex items-center gap-1">
                     <IconButton label="Edit server" onClick={() => setEditing(server)}>

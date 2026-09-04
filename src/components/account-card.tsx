@@ -139,10 +139,10 @@ function PinDialog({ clearing, onClose, onDone }: { clearing: boolean; onClose: 
         {!clearing && (
           <div className="grid grid-cols-2 gap-4">
             <Field label="New passphrase">
-              <Input type="password" inputMode="numeric" value={pin} onChange={(event) => setPin(digits(event.target.value))} placeholder="••••" className="text-center font-mono tracking-[0.5em]" autoFocus />
+              <Input type="text" inputMode="numeric" autoComplete="off" data-1p-ignore data-lpignore="true" value={pin} onChange={(event) => setPin(digits(event.target.value))} placeholder="••••" className="pin-mask text-center font-mono tracking-[0.5em]" autoFocus />
             </Field>
             <Field label="Confirm">
-              <Input type="password" inputMode="numeric" value={confirm} onChange={(event) => setConfirm(digits(event.target.value))} placeholder="••••" className="text-center font-mono tracking-[0.5em]" />
+              <Input type="text" inputMode="numeric" autoComplete="off" data-1p-ignore data-lpignore="true" value={confirm} onChange={(event) => setConfirm(digits(event.target.value))} placeholder="••••" className="pin-mask text-center font-mono tracking-[0.5em]" />
             </Field>
           </div>
         )}

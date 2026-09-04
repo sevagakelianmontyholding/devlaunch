@@ -528,14 +528,17 @@ export function PinPrompt({ deployment, kind, onClose, onSubmit }: { deployment:
     <Dialog title={{ deploy: `Deploy ${deployment.name}?`, commands: `Run commands for ${deployment.name}?`, rollback: `Roll back ${deployment.name}?`, pipeline: `Run pipeline ${deployment.name}?` }[kind]} description={`Enter your 4-digit passphrase to continue on ${deployment.serverName}.`} onClose={onClose} width="max-w-[380px]">
       <form onSubmit={submit} className="space-y-4">
         <Input
-          type="password"
+          type="text"
           inputMode="numeric"
+          autoComplete="off"
+          data-1p-ignore
+          data-lpignore="true"
           value={pin}
           onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 4))}
           placeholder="••••"
           autoFocus
           aria-label="Deploy passphrase"
-          className="h-12 text-center font-mono text-[20px] tracking-[0.6em]"
+          className="pin-mask h-12 text-center font-mono text-[20px] tracking-[0.6em]"
         />
         {error && <ErrorNote>{error}</ErrorNote>}
         <div className="flex justify-end gap-2">

@@ -71,6 +71,11 @@ button {
   font: inherit;
 }
 
+/* Masks the deploy passphrase without a password field, so browsers don't offer to save it. */
+.pin-mask {
+  -webkit-text-security: disc;
+}
+
 @keyframes fade-up {
   from {
     opacity: 0;

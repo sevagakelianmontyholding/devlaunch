@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
+import { fontStack, prefsEvent, readPrefs } from "./terminal-prefs";
 import { cx } from "./ui";
 
 // A real terminal (xterm.js). Two modes:
@@ -33,6 +34,13 @@ export function TerminalView({ runId, text, rows = 16, className, interactive = 
   const termRef = useRef<Terminal | null>(null);
   const writtenRef = useRef("");
   const [ready, setReady] = useState(0);
+  const [prefs, setPrefs] = useState(() => (typeof window === "undefined" ? { family: "Geist Mono", size: 12 } : readPrefs()));
+
+  useEffect(() => {
+    const update = () => setPrefs(readPrefs());
+    window.addEventListener(prefsEvent, update);
+    return () => window.removeEventListener(prefsEvent, update);
+  }, []);
 
   // Mount the terminal once per run.
   useEffect(() => {
@@ -46,9 +54,9 @@ export function TerminalView({ runId, text, rows = 16, className, interactive = 
       term = new Terminal({
         rows,
         cols: 100,
-        fontSize: 12,
+        fontSize: readPrefs().size,
         lineHeight: 1.2,
-        fontFamily: "var(--font-geist-mono), ui-monospace, Menlo, monospace",
+        fontFamily: fontStack(readPrefs().family),
         theme: readTheme(),
         cursorBlink: interactive,
         cursorStyle: interactive ? "bar" : "underline",
@@ -80,6 +88,7 @@ export function TerminalView({ runId, text, rows = 16, className, interactive = 
       });
       observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
       resize = new ResizeObserver(refit);
+      (containerRef.current as HTMLDivElement & { refit?: () => void }).refit = refit;
       resize.observe(containerRef.current);
       setReady((count) => count + 1);
     })();
@@ -91,6 +100,15 @@ export function TerminalView({ runId, text, rows = 16, className, interactive = 
       termRef.current = null;
     };
   }, [runId, rows, interactive]);
+
+  // Font changes from Settings apply to open terminals immediately.
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term || ready === 0) return;
+    term.options.fontFamily = fontStack(prefs.family);
+    term.options.fontSize = prefs.size;
+    (containerRef.current as (HTMLDivElement & { refit?: () => void }) | null)?.refit?.();
+  }, [prefs, ready]);
 
   // Live mode: stream the run and forward keystrokes.
   useEffect(() => {
@@ -136,7 +154,7 @@ export function TerminalView({ runId, text, rows = 16, className, interactive = 
       ref={containerRef}
       onClick={() => interactive && termRef.current?.focus()}
       className={cx("overflow-hidden rounded-lg border border-line p-2", interactive ? "cursor-text" : "", className)}
-      style={{ background: "var(--terminal-bg, #07070a)", height: `${Math.round(rows * 12 * 1.2) + 16}px` }}
+      style={{ background: "var(--terminal-bg, #07070a)", height: `${Math.round(rows * prefs.size * 1.2) + 16}px` }}
     />
   );
 }

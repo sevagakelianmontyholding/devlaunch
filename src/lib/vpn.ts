@@ -3,6 +3,7 @@ import { userInfo } from "node:os";
 import path from "node:path";
 import { decrypt, encrypt } from "./crypto";
 import { dataDir } from "./db";
+import { db } from "./db";
 import { getSetting, setSetting } from "./settings";
 import { run, UserError } from "./shell";
 import type { VpnSettings, VpnStatus } from "./types";
@@ -12,6 +13,10 @@ import type { VpnSettings, VpnStatus } from "./types";
 // opened by the OpenVPN CLI as root through a sudoers rule that allows exactly
 // one command line (written by scripts/vpn-setup.sh).
 export const vpnDir = path.join(dataDir, "vpn");
+// The profile the user gave us, and the one OpenVPN actually runs: the same
+// plus a route through the tunnel for every deploy server, so servers the VPN
+// does not push a route for are still reached through the office.
+const sourcePath = path.join(vpnDir, "profile.source.ovpn");
 const profilePath = path.join(vpnDir, "profile.ovpn");
 const authPath = path.join(vpnDir, "auth.txt");
 const logPath = path.join(vpnDir, "openvpn.log");
@@ -38,9 +43,21 @@ function quote(value: string) {
   return /^[A-Za-z0-9_./@-]+$/.test(value) ? value : `'${value.replaceAll("'", "'\\''")}'`;
 }
 
+function serverRoutes() {
+  const rows = db().prepare("SELECT DISTINCT host FROM servers").all() as Array<{ host: string }>;
+  return rows.map((row) => row.host.trim()).filter((host) => /^[A-Za-z0-9.-]+$/.test(host));
+}
+
+function writeRunProfile() {
+  const source = readFileSync(existsSync(sourcePath) ? sourcePath : profilePath, "utf8");
+  const routes = serverRoutes().map((host) => `route ${host} 255.255.255.255`);
+  const content = `${source.trimEnd()}\n\n# Added by DevLaunch: reach every deploy server through the tunnel\n${routes.join("\n")}\n`;
+  writeFileSync(profilePath, content, { mode: 0o600 });
+}
+
 function profileHost() {
   try {
-    const match = readFileSync(profilePath, "utf8").match(/^\s*remote\s+(\S+)/m);
+    const match = readFileSync(existsSync(sourcePath) ? sourcePath : profilePath, "utf8").match(/^\s*remote\s+(\S+)/m);
     return match?.[1] ?? null;
   } catch {
     return null;
@@ -61,7 +78,7 @@ export async function getVpnSettings(): Promise<VpnSettings> {
   const binary = openvpnBinary();
   return {
     binaryFound: Boolean(binary),
-    profileSaved: existsSync(profilePath),
+    profileSaved: existsSync(sourcePath) || existsSync(profilePath),
     host: profileHost(),
     username: getSetting("vpn.username") ?? "",
     passwordSaved: Boolean(getSetting("vpn.password")),
@@ -83,7 +100,8 @@ export function saveVpnProfile(input: string) {
   if (!/^\s*client\s*$/m.test(content) || !/^\s*remote\s+\S+/m.test(content)) throw new UserError("That does not look like an OpenVPN client profile (.ovpn)");
   if (content.length > 200_000) throw new UserError("The profile is too large");
   mkdirSync(vpnDir, { recursive: true, mode: 0o700 });
-  writeFileSync(profilePath, content.replace(/\r\n/g, "\n"), { mode: 0o600 });
+  writeFileSync(sourcePath, content.replace(/\r\n/g, "\n"), { mode: 0o600 });
+  writeRunProfile();
 }
 
 export function saveVpnCredentials(username: string, password: string) {
@@ -102,6 +120,7 @@ export function forgetVpn() {
   setSetting("vpn.username", "");
   setSetting("vpn.password", "");
   rmSync(profilePath, { force: true });
+  rmSync(sourcePath, { force: true });
 }
 
 function pidAlive() {
@@ -131,6 +150,7 @@ function prepareFiles() {
   rmSync(logPath, { force: true });
   rmSync(pidPath, { force: true });
   writeFileSync(logPath, "", { mode: 0o644 });
+  writeRunProfile();
 }
 
 function pidAge() {
@@ -142,7 +162,7 @@ function pidAge() {
 }
 
 export function vpnStatus(): VpnStatus {
-  const configured = existsSync(profilePath) && Boolean(getSetting("vpn.username")) && Boolean(getSetting("vpn.password"));
+  const configured = (existsSync(sourcePath) || existsSync(profilePath)) && Boolean(getSetting("vpn.username")) && Boolean(getSetting("vpn.password"));
   const host = profileHost();
   const pid = pidAlive();
   if (!pid) return { state: configured ? "disconnected" : "unconfigured", host, since: null, detail: null };
@@ -164,7 +184,7 @@ export function vpnStatus(): VpnStatus {
 export async function connectVpn(code: string): Promise<VpnStatus> {
   const binary = openvpnBinary();
   if (!binary) throw new UserError("The OpenVPN command-line client is not installed (brew install openvpn)");
-  if (!existsSync(profilePath)) throw new UserError("Add the VPN profile in Settings first");
+  if (!existsSync(sourcePath) && !existsSync(profilePath)) throw new UserError("Add the VPN profile in Settings first");
   const username = getSetting("vpn.username");
   const encrypted = getSetting("vpn.password");
   if (!username || !encrypted) throw new UserError("Add the VPN username and password in Settings first");

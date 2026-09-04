@@ -91,7 +91,7 @@ If the servers are only reachable through an OpenVPN connection whose password i
 1. `brew install openvpn`
 2. **Settings → VPN**: paste your `.ovpn` profile (or its path), the VPN username, and the fixed part of the password. The password is stored encrypted like env files; the code is never stored.
 3. Run the one-time setup command shown there in a terminal (it asks for your Mac password). It writes a `sudoers` rule that lets your user start and stop OpenVPN for that profile only, with exactly one command line and nothing else.
-4. On the dashboard, **VPN → Connect**, type the code, done. Disconnect from the same place. The tunnel runs as long as your Mac is awake; DevLaunch shows its state and points at it when a server is unreachable.
+4. On the dashboard, **VPN → Connect**, type the code, done. DevLaunch adds a route through the tunnel for every deploy server, so a server the VPN does not push a route for is still reached through the office. Disconnect from the same place. The tunnel runs as long as your Mac is awake; DevLaunch shows its state and points at it when a server is unreachable.
 
 ## Pipelines
 

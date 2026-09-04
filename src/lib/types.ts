@@ -215,6 +215,9 @@ export type Deployment = {
   envPath: string;
   envContent: string;
   requireCleanGit: boolean;
+  healthUrl: string;
+  healthTimeout: number;
+  autoRollback: boolean;
   createdAt: string;
   updatedAt: string;
   lastRun: DeployRunSummary | null;
@@ -234,6 +237,9 @@ export type DeploymentInput = {
   envPath: string;
   envContent: string;
   requireCleanGit: boolean;
+  healthUrl: string;
+  healthTimeout: number;
+  autoRollback: boolean;
 };
 
 export type RunStatus = "running" | "success" | "error" | "cancelled";
@@ -257,7 +263,7 @@ export type UploadProgress = {
   percent: number;
 };
 
-export type DeployPhase = "building" | "uploading" | "commands";
+export type DeployPhase = "building" | "uploading" | "commands" | "health" | "rollback";
 
 export type DeployRun = DeployRunSummary & {
   deploymentId: string;

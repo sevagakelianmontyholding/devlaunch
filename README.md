@@ -66,7 +66,7 @@ Buttons on each deployment:
 - **Roll back** (image deployments) — the previous image is kept on the server as `<image>:previous` before each upload; rollback re-tags it and runs your commands.
 - **History** — the last ten runs with status, kind, duration, and who ran them; click one to read its log.
 
-Extras per deployment: an optional **environment file** (stored encrypted on this Mac, written to the server before your commands) and a **clean git tree check** that refuses to deploy uncommitted or un-pulled code unless you choose "Deploy anyway".
+Extras per deployment: an optional **health check URL** (polled from this Mac after the commands finish, for up to the time you set; the run only succeeds once it answers) with optional **automatic rollback** for image deployments (re-tags the previous image, reruns your commands, checks again, and reports the run as failed either way); an optional **environment file** (stored encrypted on this Mac, written to the server before your commands) and a **clean git tree check** that refuses to deploy uncommitted or un-pulled code unless you choose "Deploy anyway".
 
 ## Deploy locks
 

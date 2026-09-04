@@ -240,7 +240,7 @@ function ProjectCard({
   );
 }
 
-const phaseLabel = { building: "Building image", uploading: "Uploading image", commands: "Running server commands" } as const;
+const phaseLabel = { building: "Building image", uploading: "Uploading image", commands: "Running server commands", health: "Health check", rollback: "Rolling back" } as const;
 
 function DeployStrip({ deploy }: { deploy: ActiveDeploy }) {
   const upload = deploy.phase === "uploading" ? deploy.upload : null;

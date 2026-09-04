@@ -73,6 +73,9 @@ export function createTemplateFromProject(projectId: string, rawName: string): P
     platform: deployment.platform ?? "",
     envPath: abstract(deployment.envPath, vars),
     requireCleanGit: deployment.requireCleanGit,
+    healthUrl: abstract(deployment.healthUrl, vars),
+    healthTimeout: deployment.healthTimeout,
+    autoRollback: deployment.autoRollback,
   }));
   const id = randomUUID();
   db()
@@ -119,6 +122,9 @@ export function applyTemplateDeployments(projectId: string, template: ProjectTem
         envPath: fill(item.envPath, vars),
         envContent: "",
         requireCleanGit: item.requireCleanGit,
+        healthUrl: fill(item.healthUrl ?? "", vars),
+        healthTimeout: item.healthTimeout ?? 60,
+        autoRollback: item.autoRollback ?? false,
       });
       created += 1;
     } catch (error) {

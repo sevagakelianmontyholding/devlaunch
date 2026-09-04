@@ -32,7 +32,7 @@ const runStatus = {
   running: { tone: "warn" as const, label: "Running" },
 };
 const kindLabel = { deploy: "Deploy", commands: "Commands", rollback: "Rollback" } as const;
-const phaseLabel = { building: "Building", uploading: "Uploading", commands: "Server commands" } as const;
+const phaseLabel = { building: "Building", uploading: "Uploading", commands: "Server commands", health: "Health check", rollback: "Rolling back" } as const;
 const actionLabel = { start: "Starting", stop: "Stopping", restart: "Restarting", rebuild: "Rebuilding" } as const;
 
 export function DashboardView() {

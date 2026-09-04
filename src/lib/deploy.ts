@@ -37,6 +37,9 @@ type Row = {
   env_path: string | null;
   env_encrypted: string | null;
   require_clean_git: string | null;
+  health_url: string | null;
+  health_timeout: string | null;
+  auto_rollback: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -99,6 +102,9 @@ function fromRow(row: Row): Deployment {
     envPath: row.env_path ?? ".env",
     envContent: row.env_encrypted ? decrypt(row.env_encrypted) : "",
     requireCleanGit: row.require_clean_git !== "0",
+    healthUrl: row.health_url ?? "",
+    healthTimeout: Number(row.health_timeout) || 60,
+    autoRollback: row.auto_rollback === "1",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     lastRun: lastRunFor(row.id),
@@ -162,13 +168,18 @@ function validate(input: DeploymentInput) {
   if (!SAFE_RELATIVE.test(envPath) || envPath.includes("..")) throw new UserError("The env file path must be relative to the project directory");
   const envContent = input.envContent.replace(/\r\n/g, "\n");
   if (envContent.length > 64_000) throw new UserError("The env file is too large");
+  const healthUrl = input.healthUrl.trim();
+  if (healthUrl && !/^https?:\/\/\S+$/.test(healthUrl)) throw new UserError("The health check URL must start with http:// or https://");
+  const healthTimeout = Math.round(Number(input.healthTimeout) || 60);
+  if (healthTimeout < 5 || healthTimeout > 900) throw new UserError("The health check wait must be between 5 and 900 seconds");
+  const autoRollback = Boolean(input.autoRollback && healthUrl && input.mode === "image");
   if (input.mode === "image") {
     if (!imageName || !SAFE_IMAGE.test(imageName)) throw new UserError("Enter a valid lowercase image name");
     if (imageTag && !SAFE_TAG.test(imageTag)) throw new UserError("Enter a valid image tag");
     if (buildContext && !SAFE_RELATIVE.test(buildContext)) throw new UserError("The build context must be a relative folder");
     if (dockerfile && !SAFE_RELATIVE.test(dockerfile)) throw new UserError("The Dockerfile must be a relative path");
   }
-  return { name, mode: input.mode, remotePath, commands, imageName, imageTag, buildContext, dockerfile, platform, envPath, envContent, requireCleanGit: input.requireCleanGit };
+  return { name, mode: input.mode, remotePath, commands, imageName, imageTag, buildContext, dockerfile, platform, envPath, envContent, requireCleanGit: input.requireCleanGit, healthUrl, healthTimeout, autoRollback };
 }
 
 export function createDeployment(projectId: string, input: DeploymentInput): Deployment {
@@ -179,8 +190,8 @@ export function createDeployment(projectId: string, input: DeploymentInput): Dep
   const timestamp = now();
   db()
     .prepare(
-      `INSERT INTO deployments (id, project_id, server_id, name, mode, image_name, image_tag, build_context, dockerfile, remote_path, commands, platform, env_path, env_encrypted, require_clean_git, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO deployments (id, project_id, server_id, name, mode, image_name, image_tag, build_context, dockerfile, remote_path, commands, platform, env_path, env_encrypted, require_clean_git, health_url, health_timeout, auto_rollback, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -198,6 +209,9 @@ export function createDeployment(projectId: string, input: DeploymentInput): Dep
       deployment.envPath,
       deployment.envContent ? encrypt(deployment.envContent) : null,
       deployment.requireCleanGit ? "1" : "0",
+      deployment.healthUrl || null,
+      String(deployment.healthTimeout),
+      deployment.autoRollback ? "1" : "0",
       timestamp,
       timestamp,
     );
@@ -211,7 +225,8 @@ export function updateDeployment(id: string, input: DeploymentInput): Deployment
   db()
     .prepare(
       `UPDATE deployments SET server_id = ?, name = ?, mode = ?, image_name = ?, image_tag = ?, build_context = ?,
-       dockerfile = ?, remote_path = ?, commands = ?, platform = ?, env_path = ?, env_encrypted = ?, require_clean_git = ?, updated_at = ? WHERE id = ?`,
+       dockerfile = ?, remote_path = ?, commands = ?, platform = ?, env_path = ?, env_encrypted = ?, require_clean_git = ?,
+       health_url = ?, health_timeout = ?, auto_rollback = ?, updated_at = ? WHERE id = ?`,
     )
     .run(
       server.id,
@@ -227,6 +242,9 @@ export function updateDeployment(id: string, input: DeploymentInput): Deployment
       deployment.envPath,
       deployment.envContent ? encrypt(deployment.envContent) : null,
       deployment.requireCleanGit ? "1" : "0",
+      deployment.healthUrl || null,
+      String(deployment.healthTimeout),
+      deployment.autoRollback ? "1" : "0",
       now(),
       id,
     );
@@ -439,13 +457,14 @@ async function execute(run: DeployRun, config: Row, server: ServerRow, projectPa
     }
   }
   if (kind === "commands") step("Commands only — no build or upload");
-  if (kind === "rollback") {
+  const retagPrevious = async () => {
     if (config.mode !== "image") throw new Error("Rollback only applies to image deployments");
     const image = `${config.image_name}:${config.image_tag || "latest"}`;
     const previous = `${config.image_name}:previous`;
     step(`Rolling back ${image} to the previous image on ${server.name}`);
     await stream("ssh", [...sshArgs(server), `docker image inspect ${shQuote(previous)} >/dev/null 2>&1 && docker tag ${shQuote(previous)} ${shQuote(image)} || { echo 'No previous image on the server yet'; exit 1; }`], { timeoutMs: 30_000, onOutput: log, control });
-  }
+  };
+  if (kind === "rollback") await retagPrevious();
   if (config.env_encrypted) {
     const envPath = config.env_path || ".env";
     step(`Writing ${envPath} on ${server.name}`);
@@ -457,10 +476,62 @@ async function execute(run: DeployRun, config: Row, server: ServerRow, projectPa
 
   const lines = commandLines(config.commands);
   const remote = `cd ${shQuote(config.remote_path)} && ${lines.join(" && ")}`;
-  run.phase = "commands";
-  step(`Running ${lines.length} command${lines.length === 1 ? "" : "s"} on ${server.name}`);
-  for (const line of lines) log(`  $ ${line}\n`);
-  await stream("ssh", [...sshArgs(server), remote], { timeoutMs: 20 * 60_000, onOutput: log, control });
+  const runCommands = async () => {
+    run.phase = "commands";
+    step(`Running ${lines.length} command${lines.length === 1 ? "" : "s"} on ${server.name}`);
+    for (const line of lines) log(`  $ ${line}\n`);
+    await stream("ssh", [...sshArgs(server), remote], { timeoutMs: 20 * 60_000, onOutput: log, control });
+  };
+  await runCommands();
+
+  if (!config.health_url) return;
+  const timeout = Number(config.health_timeout) || 60;
+  run.phase = "health";
+  step(`Health check: waiting up to ${timeout}s for ${config.health_url}`);
+  const first = await healthCheck(config.health_url, timeout, control, log);
+  if (first.ok) {
+    log(`  ✔ ${first.detail}\n`);
+    return;
+  }
+  const canRollBack = config.auto_rollback === "1" && config.mode === "image" && kind === "deploy";
+  if (!canRollBack) throw new Error(`Health check failed: ${first.detail} (${config.health_url})`);
+
+  run.phase = "rollback";
+  log(`  ✖ ${first.detail} — rolling back automatically\n`);
+  await retagPrevious();
+  await runCommands();
+  run.phase = "health";
+  step(`Health check after rollback: waiting up to ${timeout}s for ${config.health_url}`);
+  const second = await healthCheck(config.health_url, timeout, control, log);
+  log(second.ok ? `  ✔ ${second.detail}\n` : `  ✖ ${second.detail}\n`);
+  throw new Error(`Health check failed (${first.detail}); rolled back to the previous image — ${second.ok ? "the site is up again" : `still failing: ${second.detail}`}`);
+}
+
+// Polls the URL every few seconds until it answers with a status below 400 or
+// the time runs out. Redirects count as healthy: the site is answering.
+async function healthCheck(url: string, timeoutSeconds: number, control: ProcessControl, log: (chunk: string) => void) {
+  const deadline = Date.now() + timeoutSeconds * 1000;
+  const started = Date.now();
+  let attempt = 0;
+  let last = "no response";
+  while (Date.now() < deadline) {
+    if (control.cancelled) throw new Error("Cancelled");
+    attempt += 1;
+    try {
+      const response = await fetch(url, { redirect: "manual", cache: "no-store", signal: AbortSignal.timeout(10_000), headers: { "user-agent": "DevLaunch health check" } });
+      last = `HTTP ${response.status}`;
+      if (response.status < 400) return { ok: true, detail: `${last} after ${Math.round((Date.now() - started) / 1000)}s (attempt ${attempt})` };
+    } catch (error) {
+      const cause = (error as { cause?: { code?: string; message?: string; errors?: Array<{ code?: string }> } }).cause;
+      const reason = cause?.code ?? cause?.errors?.[0]?.code ?? cause?.message;
+      last = error instanceof Error && error.name === "TimeoutError" ? "timed out after 10s" : reason ?? (error instanceof Error ? error.message : "request failed");
+    }
+    log(`  attempt ${attempt}: ${last}\n`);
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(3000, remaining)));
+  }
+  return { ok: false, detail: `${last} after ${timeoutSeconds}s` };
 }
 
 // Refuses to build from a working tree with uncommitted changes or commits not yet

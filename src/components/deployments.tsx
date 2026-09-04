@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, ChevronUp, History, KeyRound, Pencil, Plus, Rocket, Server, Square, TerminalSquare, Trash2, Undo2 } from "lucide-react";
+import { ChevronDown, ChevronUp, HeartPulse, History, KeyRound, Pencil, Plus, Rocket, Server, Square, TerminalSquare, Trash2, Undo2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deploy, getDeployRuns, getDeployments, getServers, removeDeployment, saveDeployment, stopDeploy } from "@/actions";
 import type { DeployMode, DeployRun, DeployRunSummary, Deployment, RunKind, Server as DeployServer } from "@/lib/types";
@@ -209,6 +209,11 @@ export function Deployments({ projectId }: { projectId: string }) {
                       {deployment.platform && ` · ${deployment.platform}`}
                     </span>
                   )}
+                  {deployment.healthUrl && (
+                    <span className="flex items-center gap-1" title={`Health check: ${deployment.healthUrl} (up to ${deployment.healthTimeout}s)${deployment.autoRollback ? " · auto rollback" : ""}`}>
+                      <HeartPulse className="size-3" /> health check{deployment.autoRollback ? " + auto rollback" : ""}
+                    </span>
+                  )}
                   <button
                     type="button"
                     disabled={!lastRun}
@@ -320,6 +325,7 @@ export function Deployments({ projectId }: { projectId: string }) {
 }
 
 function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { projectId: string; deployment: Deployment | null; onClose: () => void; onSaved: () => void }) {
+  const { status } = useStatus();
   const [servers, setServers] = useState<DeployServer[] | null>(null);
   const [name, setName] = useState(deployment?.name ?? "");
   const [serverId, setServerId] = useState(deployment?.serverId ?? "");
@@ -332,6 +338,10 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
   const [envPath, setEnvPath] = useState(deployment?.envPath ?? ".env");
   const [envContent, setEnvContent] = useState(deployment?.envContent ?? "");
   const [requireCleanGit, setRequireCleanGit] = useState(deployment?.requireCleanGit ?? true);
+  const [healthUrl, setHealthUrl] = useState(deployment?.healthUrl ?? "");
+  const [healthTimeout, setHealthTimeout] = useState(String(deployment?.healthTimeout ?? 60));
+  const [autoRollback, setAutoRollback] = useState(deployment?.autoRollback ?? false);
+  const liveUrl = status.projects.find((project) => project.id === projectId)?.liveUrl ?? null;
   const [remotePath, setRemotePath] = useState(deployment?.remotePath ?? "");
   const [commands, setCommands] = useState(deployment?.commands ?? "");
   const [saving, setSaving] = useState(false);
@@ -350,7 +360,7 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
     event.preventDefault();
     setSaving(true);
     setError(null);
-    const result = await saveDeployment(projectId, deployment?.id ?? null, { serverId, name, mode, imageName, imageTag, buildContext, dockerfile, remotePath, commands, platform, envPath, envContent, requireCleanGit });
+    const result = await saveDeployment(projectId, deployment?.id ?? null, { serverId, name, mode, imageName, imageTag, buildContext, dockerfile, remotePath, commands, platform, envPath, envContent, requireCleanGit, healthUrl, healthTimeout: Number(healthTimeout), autoRollback });
     setSaving(false);
     if (!result.ok) return setError(result.error);
     onSaved();
@@ -443,6 +453,35 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
           <Field label="Contents" className="mt-3">
             <Textarea value={envContent} onChange={(event) => setEnvContent(event.target.value)} rows={5} spellCheck={false} placeholder={"NODE_ENV=production\nAPI_URL=https://api.example.com"} className={mono} />
           </Field>
+        </div>
+
+        <div className="rounded-lg border border-line bg-bg p-3">
+          <p className="text-[12px] font-medium">Health check</p>
+          <p className="mt-1 text-[11px] leading-4 text-ink-dim">Optional. After the commands finish, DevLaunch polls this URL from this Mac until it answers (any status below 400). The run only succeeds if it does.</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_140px]">
+            <Field label="URL">
+              <div className="flex gap-2">
+                <Input value={healthUrl} onChange={(event) => setHealthUrl(event.target.value)} placeholder={liveUrl ?? "https://my-app.com/health"} inputMode="url" className={mono} />
+                {liveUrl && !healthUrl && (
+                  <Button type="button" size="sm" onClick={() => setHealthUrl(liveUrl)}>
+                    Use live URL
+                  </Button>
+                )}
+              </div>
+            </Field>
+            <Field label="Wait up to" hint="seconds">
+              <Input value={healthTimeout} onChange={(event) => setHealthTimeout(event.target.value)} inputMode="numeric" className={mono} />
+            </Field>
+          </div>
+          {mode === "image" && (
+            <label className="mt-3 flex items-start gap-2 text-[12px]">
+              <input type="checkbox" checked={autoRollback} disabled={!healthUrl.trim()} onChange={(event) => setAutoRollback(event.target.checked)} className="mt-0.5 accent-[#2dd4bf]" />
+              <span>
+                <span className="font-medium">Roll back automatically if the check fails</span>
+                <span className="block text-[11px] text-ink-dim">Re-tags the previous image, runs your commands again, and checks the URL once more. The run is still reported as failed.</span>
+              </span>
+            </label>
+          )}
         </div>
 
         <label className="flex items-start gap-2 text-[12px]">

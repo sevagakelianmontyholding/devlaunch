@@ -2,6 +2,7 @@
 
 import { RefreshCw, SquareTerminal } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { TerminalView } from "./terminal-view";
 import { Card, CardTitle, IconButton, Spinner } from "./ui";
 
 export function LogsPanel({ projectId, enabled }: { projectId: string; enabled: boolean }) {
@@ -44,15 +45,13 @@ export function LogsPanel({ projectId, enabled }: { projectId: string; enabled: 
       >
         Compose logs
       </CardTitle>
-      <div className="max-h-[420px] overflow-auto rounded-lg border border-line bg-bg p-3">
-        {loading && logs === null ? (
-          <Spinner label="Loading logs…" />
-        ) : error ? (
-          <p className="text-[12px] text-danger">{error}</p>
-        ) : (
-          <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-4 text-ink-dim">{logs}</pre>
-        )}
-      </div>
+      {loading && logs === null ? (
+        <Spinner label="Loading logs…" />
+      ) : error ? (
+        <p className="text-[12px] text-danger">{error}</p>
+      ) : (
+        <TerminalView text={logs ?? ""} rows={22} />
+      )}
     </Card>
   );
 }

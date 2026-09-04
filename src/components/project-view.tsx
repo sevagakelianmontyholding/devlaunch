@@ -11,6 +11,7 @@ import { NotesCard } from "./notes-card";
 import { useNavigate } from "./navigate";
 import { ProjectDialog } from "./project-dialog";
 import { ReposCard } from "./repos-card";
+import { TerminalView } from "./terminal-view";
 import { ActionsCard } from "./actions-card";
 import { LiveStatus } from "./projects-view";
 import { actionDone, actionRunning as runningLabel } from "@/lib/labels";
@@ -34,7 +35,6 @@ export function ProjectView({ id }: { id: string }) {
   const [confirming, setConfirming] = useState<Exclude<ComposeAction, "start"> | "remove" | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [actionRun, setActionRun] = useState<LocalRun | null>(null);
-  const logRef = useRef<HTMLPreElement | null>(null);
   const notifiedRef = useRef<string | null>(null);
 
   // Follow a running start/stop/restart/rebuild until it finishes.
@@ -48,10 +48,6 @@ export function ProjectView({ id }: { id: string }) {
     }, 1000);
     return () => clearInterval(interval);
   }, [actionRun]);
-
-  useEffect(() => {
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
-  }, [actionRun?.log]);
 
   useEffect(() => {
     if (!actionRun || actionRun.status === "running" || notifiedRef.current === actionRun.id) return;
@@ -189,9 +185,7 @@ export function ProjectView({ id }: { id: string }) {
               </button>
             )}
           </div>
-          <pre ref={logRef} className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-black/40 p-3 font-mono text-[11px] leading-4 text-ink-dim">
-            {actionRun.log}
-          </pre>
+          <TerminalView runId={actionRun.id} rows={16} className="mt-2" />
         </div>
       )}
 

@@ -1,10 +1,11 @@
 "use client";
 
-import { CornerDownLeft, Pencil, Play, Plus, Server, Square, TerminalSquare, Trash2, Zap } from "lucide-react";
+import { Pencil, Play, Plus, Server, Square, TerminalSquare, Trash2, Zap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { getServers, removeAction, runAction, saveAction, stopAction } from "@/actions";
 import type { LocalRun, Project, ProjectAction, Server as DeployServer } from "@/lib/types";
 import { useStatus } from "./status-provider";
+import { TerminalView } from "./terminal-view";
 import { Button, Card, CardTitle, Confirm, Dialog, Dot, ErrorNote, Field, IconButton, Input, Select, Textarea, cx } from "./ui";
 
 export function ActionsCard({ project, actions }: { project: Project; actions: ProjectAction[] }) {
@@ -15,8 +16,6 @@ export function ActionsCard({ project, actions }: { project: Project; actions: P
   const [confirming, setConfirming] = useState<ProjectAction | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [reply, setReply] = useState("");
-  const logRef = useRef<HTMLPreElement | null>(null);
   const notifiedRef = useRef<string | null>(null);
   const otherRunning = Boolean(status.activeActions[project.id]) && status.activeActions[project.id]?.runId !== run?.id;
   const running = run?.status === "running" || otherRunning;
@@ -31,10 +30,6 @@ export function ActionsCard({ project, actions }: { project: Project; actions: P
     }, 1000);
     return () => clearInterval(interval);
   }, [run]);
-
-  useEffect(() => {
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
-  }, [run?.log]);
 
   useEffect(() => {
     if (!run || run.status === "running" || notifiedRef.current === run.id) return;
@@ -53,32 +48,6 @@ export function ActionsCard({ project, actions }: { project: Project; actions: P
     setRun(result.data);
     void refresh();
   };
-
-  const send = async (text: string, raw: boolean) => {
-    if (!run) return;
-    const response = await fetch(`/api/local-runs/${run.id}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, raw }) });
-    if (!response.ok) notify("error", ((await response.json()) as { error?: string }).error ?? "Could not send the reply");
-  };
-
-  const sendReply = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const text = reply;
-    setReply("");
-    await send(text, false);
-  };
-
-  // Keystrokes for menu-style prompts (Laravel Prompts, inquirer, …).
-  const keys: Array<{ label: string; text: string; title: string }> = [
-    { label: "Yes", text: "y", title: "Press y" },
-    { label: "No", text: "n", title: "Press n" },
-    { label: "Enter", text: "\n", title: "Press Enter" },
-    { label: "←", text: "\x1b[D", title: "Left arrow" },
-    { label: "→", text: "\x1b[C", title: "Right arrow" },
-    { label: "↑", text: "\x1b[A", title: "Up arrow" },
-    { label: "↓", text: "\x1b[B", title: "Down arrow" },
-    { label: "Space", text: " ", title: "Space (toggle a choice)" },
-    { label: "Ctrl+C", text: "\x03", title: "Interrupt" },
-  ];
 
   const stop = async () => {
     if (!run) return;
@@ -202,27 +171,8 @@ export function ActionsCard({ project, actions }: { project: Project; actions: P
               </button>
             )}
           </div>
-          <pre ref={logRef} className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-black/40 p-3 font-mono text-[11px] leading-4 text-ink-dim">
-            {run.log}
-          </pre>
-          {run.status === "running" && (
-            <div className="mt-2 space-y-2">
-              <form onSubmit={sendReply} className="flex items-center gap-2">
-                <Input value={reply} onChange={(event) => setReply(event.target.value)} placeholder="If the command asks something, type the answer and press Enter" className="font-mono text-[12px]" autoComplete="off" />
-                <Button type="submit" size="sm" icon={<CornerDownLeft className="size-3.5" />}>
-                  Send
-                </Button>
-              </form>
-              <div className="flex flex-wrap items-center gap-1">
-                <span className="mr-1 text-[11px] text-ink-faint">Keys:</span>
-                {keys.map((key) => (
-                  <button key={key.label} type="button" title={key.title} onClick={() => void send(key.text, true)} className="rounded-md border border-line bg-bg px-2 py-0.5 font-mono text-[11px] text-ink-dim transition hover:border-line-strong hover:text-ink">
-                    {key.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <TerminalView runId={run.id} rows={18} className="mt-2" />
+          {run.status === "running" && <p className="mt-1 text-[11px] text-ink-faint">Click inside the terminal to type. Prompts, menus and arrow keys work as in a terminal.</p>}
         </div>
       )}
 

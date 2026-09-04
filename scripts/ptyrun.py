@@ -3,10 +3,13 @@
 # output to our stdout, and exits with the command's exit code. DevLaunch uses
 # it so actions can prompt (php artisan migrate, npm init, …) and be answered
 # from the browser. macOS's script(1) refuses to work without a tty; this does.
+import fcntl
 import os
 import pty
 import select
+import struct
 import sys
+import termios
 
 argv = sys.argv[1:]
 if not argv:
@@ -15,6 +18,14 @@ if not argv:
 pid, fd = pty.fork()
 if pid == 0:
     os.execvp(argv[0], argv)
+
+# Match the size of the terminal panel in the browser.
+cols = int(os.environ.get("PTY_COLS", "100"))
+rows = int(os.environ.get("PTY_ROWS", "30"))
+try:
+    fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+except OSError:
+    pass
 
 stdin_open = True
 while True:

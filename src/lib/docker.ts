@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import type { Child } from "./shell";
 import { getProject, resolveCommand } from "./projects";
@@ -9,18 +10,33 @@ import type { ActiveAction, ComposeAction, LocalAction, LocalRun, Project } from
 const LOG_LIMIT = 100_000;
 // Both maps live on globalThis: route handlers and server actions are separate
 // module instances in production and must see the same runs and processes.
-const globalState = globalThis as unknown as { devlaunchLocalRuns?: Map<string, LocalRun>; devlaunchRunChildren?: Map<string, Child> };
+type Listener = { onChunk: (chunk: string) => void; onDone: (status: LocalRun["status"]) => void };
+const globalState = globalThis as unknown as { devlaunchLocalRuns?: Map<string, LocalRun>; devlaunchRunChildren?: Map<string, Child>; devlaunchRunListeners?: Map<string, Set<Listener>> };
 const localRuns = (globalState.devlaunchLocalRuns ??= new Map());
 const runChildren = (globalState.devlaunchRunChildren ??= new Map());
+const runListeners = (globalState.devlaunchRunListeners ??= new Map());
+const PTY_COLS = 100;
+const PTY_ROWS = 30;
 const PTY_WRAPPER = path.join(process.cwd(), "scripts", "ptyrun.py");
 
-// Terminal escape sequences and carriage returns from pty-backed runs.
-function plainText(chunk: string) {
-  return chunk
-    .replace(/\x1b\][^\x07]*\x07/g, "")
-    .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n");
+// Live output for the terminal panel in the browser (see the SSE route).
+export function subscribeRun(id: string, listener: Listener) {
+  const set = runListeners.get(id) ?? new Set<Listener>();
+  set.add(listener);
+  runListeners.set(id, set);
+  return () => {
+    set.delete(listener);
+    if (set.size === 0) runListeners.delete(id);
+  };
+}
+
+function emit(id: string, chunk: string) {
+  for (const listener of runListeners.get(id) ?? []) listener.onChunk(chunk);
+}
+
+function finish(id: string, status: LocalRun["status"]) {
+  for (const listener of runListeners.get(id) ?? []) listener.onDone(status);
+  runListeners.delete(id);
 }
 
 function requireProject(id: string) {
@@ -87,28 +103,33 @@ export function launchRun(project: Project, action: LocalAction, command: string
     finishedAt: null,
   };
   localRuns.set(localRun.id, localRun);
-  const log = (chunk: string) => (localRun.log = (localRun.log + chunk).slice(-LOG_LIMIT));
+  const log = (chunk: string) => {
+    localRun.log = (localRun.log + chunk).slice(-LOG_LIMIT);
+    emit(localRun.id, chunk);
+  };
 
-  // A pseudo-terminal makes tools believe a person is there, so they show
-  // their prompts; the answers arrive through writeRunInput.
-  const child = options.pty
-    ? spawnTracked("/usr/bin/python3", [PTY_WRAPPER, "/bin/zsh", "-lc", command], undefined, cwd)
+  // Every run gets a pseudo-terminal when possible: tools show colours,
+  // progress and their prompts, and the browser terminal can answer them.
+  const pty = options.pty !== false && existsSync("/usr/bin/python3");
+  const child = pty
+    ? spawnTracked("/usr/bin/python3", [PTY_WRAPPER, "/bin/zsh", "-lc", command], undefined, cwd, { TERM: "xterm-256color", PTY_COLS: String(PTY_COLS), PTY_ROWS: String(PTY_ROWS), FORCE_COLOR: "1" })
     : spawnTracked("/bin/zsh", ["-lc", command], undefined, cwd);
   runChildren.set(localRun.id, child);
   const timer = setTimeout(() => {
     killProcessGroup(child, "SIGKILL");
-    log(`\n✖ Timed out after ${Math.round(timeoutMs / 60_000)} minutes\n`);
+    log(`\r\n✖ Timed out after ${Math.round(timeoutMs / 60_000)} minutes\r\n`);
   }, timeoutMs);
-  const onData = (chunk: Buffer) => log(options.pty ? plainText(chunk.toString("utf8")) : chunk.toString("utf8"));
+  const onData = (chunk: Buffer) => log(chunk.toString("utf8"));
   child.stdout?.on("data", onData);
   child.stderr?.on("data", onData);
-  child.on("error", (error) => log(`\n✖ ${error.message}\n`));
+  child.on("error", (error) => log(`\r\n✖ ${error.message}\r\n`));
   child.on("close", (code) => {
     clearTimeout(timer);
     runChildren.delete(localRun.id);
     localRun.status = code === 0 ? "success" : "error";
     localRun.finishedAt = new Date().toISOString();
-    log(code === 0 ? "\n✔ Done\n" : `\n✖ Exited with code ${code}\n`);
+    log(code === 0 ? "\r\n✔ Done\r\n" : `\r\n✖ Exited with code ${code}\r\n`);
+    finish(localRun.id, localRun.status);
     setTimeout(() => localRuns.delete(localRun.id), 10 * 60_000);
   });
 
@@ -139,7 +160,8 @@ export function stopLocalRun(id: string) {
   const child = runChildren.get(id);
   const localRun = localRuns.get(id);
   if (!child || !localRun || localRun.status !== "running") throw new UserError("That command is not running");
-  localRun.log = `${localRun.log}\n■ Stopping…\n`.slice(-LOG_LIMIT);
+  localRun.log = `${localRun.log}\r\n■ Stopping…\r\n`.slice(-LOG_LIMIT);
+  emit(id, "\r\n■ Stopping…\r\n");
   killProcessGroup(child, "SIGTERM");
   setTimeout(() => {
     if (runChildren.has(id)) killProcessGroup(child, "SIGKILL");

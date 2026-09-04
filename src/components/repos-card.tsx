@@ -6,6 +6,7 @@ import { runGit } from "@/actions";
 import { actionDone, actionRunning } from "@/lib/labels";
 import type { GitAction, LocalRun, Project, RepoStatus } from "@/lib/types";
 import { useStatus } from "./status-provider";
+import { TerminalView } from "./terminal-view";
 import { Button, Card, CardTitle, Dialog, Dot, ErrorNote, Field, IconButton, Select, Textarea, cx, timeAgo } from "./ui";
 
 export function ReposCard({ project, repos }: { project: Project; repos: RepoStatus[] }) {
@@ -13,7 +14,6 @@ export function ReposCard({ project, repos }: { project: Project; repos: RepoSta
   const [run, setRun] = useState<LocalRun | null>(null);
   const [committing, setCommitting] = useState<string | null | false>(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const logRef = useRef<HTMLPreElement | null>(null);
   const notifiedRef = useRef<string | null>(null);
   const otherRunning = Boolean(status.activeActions[project.id]) && status.activeActions[project.id]?.runId !== run?.id;
 
@@ -27,10 +27,6 @@ export function ReposCard({ project, repos }: { project: Project; repos: RepoSta
     }, 1000);
     return () => clearInterval(interval);
   }, [run]);
-
-  useEffect(() => {
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
-  }, [run?.log]);
 
   useEffect(() => {
     if (!run || run.status === "running" || notifiedRef.current === run.id) return;
@@ -141,9 +137,7 @@ export function ReposCard({ project, repos }: { project: Project; repos: RepoSta
               </button>
             )}
           </div>
-          <pre ref={logRef} className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-black/40 p-3 font-mono text-[11px] leading-4 text-ink-dim">
-            {run.log}
-          </pre>
+          <TerminalView runId={run.id} rows={14} className="mt-2" />
         </div>
       )}
 

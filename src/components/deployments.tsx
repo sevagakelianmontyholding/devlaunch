@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { ChevronDown, ChevronUp, HeartPulse, History, KeyRound, Pencil, Plus, Rocket, Server, Square, TerminalSquare, Trash2, Undo2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { deploy, getDeployRuns, getDeployments, getServers, openServerTerminal, removeDeployment, saveDeployment, stopDeploy } from "@/actions";
 import type { DeployMode, DeployRun, DeployRunSummary, Deployment, RunKind, Server as DeployServer } from "@/lib/types";
 import { useStatus } from "./status-provider";
+import { TerminalView } from "./terminal-view";
 import { LockStrip, foreignLocks } from "./projects-view";
 import { Button, Card, CardTitle, Confirm, Dialog, Dot, ErrorNote, Field, IconButton, Input, Select, Spinner, Textarea, cx } from "./ui";
 import { formatBytes } from "@/lib/format";
@@ -31,7 +32,6 @@ export function Deployments({ projectId }: { projectId: string }) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [watched, setWatched] = useState<DeployRun | null>(null);
   const [logOpen, setLogOpen] = useState(true);
-  const logRef = useRef<HTMLPreElement | null>(null);
 
   const load = useCallback(async () => {
     const list = await getDeployments(projectId);
@@ -68,10 +68,6 @@ export function Deployments({ projectId }: { projectId: string }) {
     }, 2000);
     return () => clearInterval(interval);
   }, [watched, load, refresh]);
-
-  useEffect(() => {
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
-  }, [watched?.log]);
 
   const start = async (deployment: Deployment, pin: string | undefined, kind: RunKind, force = false): Promise<string | null> => {
     const result = await deploy(deployment.id, pin, kind, force);
@@ -290,9 +286,7 @@ export function Deployments({ projectId }: { projectId: string }) {
                       {logOpen ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />} Log
                     </button>
                     {logOpen && (
-                      <pre ref={logRef} className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-black/40 p-3 font-mono text-[11px] leading-4 text-ink-dim">
-                        {live.log || "Waiting for output…"}
-                      </pre>
+                      <TerminalView text={live.log || "Waiting for output…"} rows={22} className="mt-2" />
                     )}
                   </div>
                 )}

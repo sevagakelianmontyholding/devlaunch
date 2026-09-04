@@ -50,8 +50,8 @@ export function killProcessGroup(child: Child, signal: NodeJS.Signals) {
   }
 }
 
-export function spawnTracked(command: string, args: string[], control: ProcessControl | undefined, cwd?: string) {
-  const child = spawn(command, args, { cwd, env: shellEnv, detached: true, stdio: ["pipe", "pipe", "pipe"] });
+export function spawnTracked(command: string, args: string[], control: ProcessControl | undefined, cwd?: string, env?: Record<string, string>) {
+  const child = spawn(command, args, { cwd, env: env ? { ...shellEnv, ...env } : shellEnv, detached: true, stdio: ["pipe", "pipe", "pipe"] });
   control?.children.add(child);
   child.on("close", () => control?.children.delete(child));
   return child;

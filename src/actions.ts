@@ -6,6 +6,7 @@ import { cancelRun, createDeployment, deleteDeployment, listDeployments, listRun
 import { getNotificationSettings, saveNotificationSettings, sendTestNotification } from "@/lib/notify";
 import { activePipelineRunsById, deletePipeline, listPipelines, savePipeline, startPipeline } from "@/lib/pipelines";
 import { openInEditor, openInTerminal, startAction } from "@/lib/docker";
+import { startGitRun } from "@/lib/git";
 import { saveTerminalSettings } from "@/lib/terminal";
 import { createProject, deleteProject, pickFolder, saveNotes, uniqueId, updateProject } from "@/lib/projects";
 import { applyTemplateDeployments, createTemplateFromProject, deleteTemplate, fillProjectInput, getTemplate, listTemplates } from "@/lib/templates";
@@ -20,6 +21,7 @@ import type {
   DeployRunSummary,
   Deployment,
   DeploymentInput,
+  GitAction,
   LocalRun,
   NotificationSettings,
   Pipeline,
@@ -121,6 +123,10 @@ export async function createProjectFromTemplate(
 // Docker / editor
 export async function runCompose(id: string, action: ComposeAction): Promise<ActionResult<LocalRun>> {
   return attempt(() => startAction(id, action));
+}
+
+export async function runGit(projectId: string, repoPath: string | null, action: GitAction, message?: string): Promise<ActionResult<LocalRun>> {
+  return attempt(() => startGitRun(projectId, repoPath, action, message));
 }
 
 export async function openProject(id: string): Promise<ActionResult> {

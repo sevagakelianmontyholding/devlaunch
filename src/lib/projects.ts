@@ -21,6 +21,7 @@ type Row = {
   stop_command: string | null;
   restart_command: string | null;
   rebuild_command: string | null;
+  repo_paths: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -37,6 +38,7 @@ function fromRow(row: Row): Project {
     liveUrl: row.live_url,
     composeFile: row.compose_file,
     commands: { start: row.start_command, stop: row.stop_command, restart: row.restart_command, rebuild: row.rebuild_command },
+    repoPaths: row.repo_paths ? (JSON.parse(row.repo_paths) as string[]) : [],
     notes: row.notes ?? "",
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -87,6 +89,10 @@ async function validate(input: ProjectInput) {
   if (composeFile && (!/^[A-Za-z0-9._/-]+$/.test(composeFile) || composeFile.includes(".."))) {
     throw new UserError("The compose file must be a path relative to the project, like docker/compose.yml");
   }
+  const repoPaths = [...new Set((input.repoPaths ?? []).map((item) => item.trim().replace(/^\.\//, "").replace(/\/$/, "")).filter(Boolean))].slice(0, 12);
+  if (repoPaths.some((item) => !/^[A-Za-z0-9._ /-]+$/.test(item) || item.includes(".."))) {
+    throw new UserError("Extra git folders must be paths relative to the project, like packages/api");
+  }
   const commands = Object.fromEntries(
     actions.map((action) => {
       const command = input.commands[action]?.trim() || null;
@@ -97,6 +103,7 @@ async function validate(input: ProjectInput) {
   return {
     composeFile,
     commands,
+    repoPaths,
     name,
     section: input.section,
     path: await resolveFolder(input.path),
@@ -130,8 +137,8 @@ export async function createProject(input: ProjectInput): Promise<Project> {
   const timestamp = now();
   db()
     .prepare(
-      `INSERT INTO projects (id, name, section, path, local_url, testing_url, live_url, compose_file, start_command, stop_command, restart_command, rebuild_command, created_at, updated_at)
-       VALUES (@id, @name, @section, @path, @localUrl, @testingUrl, @liveUrl, @composeFile, @start, @stop, @restart, @rebuild, @createdAt, @updatedAt)`,
+      `INSERT INTO projects (id, name, section, path, local_url, testing_url, live_url, compose_file, start_command, stop_command, restart_command, rebuild_command, repo_paths, created_at, updated_at)
+       VALUES (@id, @name, @section, @path, @localUrl, @testingUrl, @liveUrl, @composeFile, @start, @stop, @restart, @rebuild, @repoPaths, @createdAt, @updatedAt)`,
     )
     .run({
       id,
@@ -143,6 +150,7 @@ export async function createProject(input: ProjectInput): Promise<Project> {
       liveUrl: project.liveUrl,
       composeFile: project.composeFile,
       ...project.commands,
+      repoPaths: JSON.stringify(project.repoPaths),
       createdAt: timestamp,
       updatedAt: timestamp,
     });
@@ -158,7 +166,7 @@ export async function updateProject(id: string, input: ProjectInput): Promise<Pr
   db()
     .prepare(
       `UPDATE projects SET name = @name, section = @section, path = @path, local_url = @localUrl, testing_url = @testingUrl, live_url = @liveUrl, compose_file = @composeFile,
-       start_command = @start, stop_command = @stop, restart_command = @restart, rebuild_command = @rebuild, updated_at = @updatedAt WHERE id = @id`,
+       start_command = @start, stop_command = @stop, restart_command = @restart, rebuild_command = @rebuild, repo_paths = @repoPaths, updated_at = @updatedAt WHERE id = @id`,
     )
     .run({
       id,
@@ -170,6 +178,7 @@ export async function updateProject(id: string, input: ProjectInput): Promise<Pr
       liveUrl: project.liveUrl,
       composeFile: project.composeFile,
       ...project.commands,
+      repoPaths: JSON.stringify(project.repoPaths),
       updatedAt: now(),
     });
   return getProject(id)!;

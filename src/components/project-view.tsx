@@ -10,6 +10,8 @@ import { LogsPanel } from "./logs-panel";
 import { NotesCard } from "./notes-card";
 import { useNavigate } from "./navigate";
 import { ProjectDialog } from "./project-dialog";
+import { ReposCard } from "./repos-card";
+import { actionDone, actionRunning as runningLabel } from "@/lib/labels";
 import { SaveTemplateDialog } from "./templates-card";
 import { useStatus } from "./status-provider";
 import { Button, Card, CardTitle, Confirm, Dot, Empty, IconButton, Monogram, cx } from "./ui";
@@ -52,7 +54,7 @@ export function ProjectView({ id }: { id: string }) {
   useEffect(() => {
     if (!actionRun || actionRun.status === "running" || notifiedRef.current === actionRun.id) return;
     notifiedRef.current = actionRun.id;
-    const verb = { start: "Started", stop: "Stopped", restart: "Restarted", rebuild: "Rebuilt" }[actionRun.action];
+    const verb = actionDone[actionRun.action];
     notify(actionRun.status === "success" ? "success" : "error", actionRun.status === "success" ? `${verb} ${project?.name ?? "project"}` : `${actionRun.action} failed — see the output below`);
     void refresh();
   }, [actionRun, notify, refresh, project?.name]);
@@ -173,9 +175,9 @@ export function ProjectView({ id }: { id: string }) {
             <Dot tone={actionRun.status === "running" ? "warn" : actionRun.status === "success" ? "success" : "danger"} pulse={actionRun.status === "running"} />
             <span className="font-medium">
               {actionRun.status === "running"
-                ? { start: "Starting", stop: "Stopping", restart: "Restarting", rebuild: "Rebuilding" }[actionRun.action] + "…"
+                ? runningLabel[actionRun.action] + "…"
                 : actionRun.status === "success"
-                  ? { start: "Started", stop: "Stopped", restart: "Restarted", rebuild: "Rebuilt" }[actionRun.action]
+                  ? actionDone[actionRun.action]
                   : `${actionRun.action} failed`}
             </span>
             <span className="truncate font-mono text-[11px] text-ink-dim">{actionRun.command}</span>
@@ -215,6 +217,7 @@ export function ProjectView({ id }: { id: string }) {
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <div className="space-y-4">
+          <ReposCard project={project} repos={status.repos[project.id] ?? []} />
           <Deployments projectId={project.id} />
 
           <Card>

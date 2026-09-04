@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useNavigate } from "./navigate";
-import { Code2, ExternalLink, FlaskConical, FolderKanban, Globe2, Plus, Power, Rocket, Search, TerminalSquare } from "lucide-react";
+import { Code2, ExternalLink, GitBranch, FlaskConical, FolderKanban, Globe2, Plus, Power, Rocket, Search, TerminalSquare } from "lucide-react";
 import { formatBytes } from "@/lib/format";
+import { actionRunning } from "@/lib/labels";
 import { useMemo, useState } from "react";
 import { openProject, openProjectTerminal, runCompose } from "@/actions";
-import type { ActiveAction, ActiveDeploy, Project, ProjectRuntime, Section } from "@/lib/types";
+import type { ActiveAction, ActiveDeploy, Project, ProjectRuntime, RepoStatus, Section } from "@/lib/types";
 import { PageHeader } from "./app-shell";
 import { ProjectDialog } from "./project-dialog";
 import { useStatus } from "./status-provider";
@@ -118,6 +119,7 @@ export function ProjectsView() {
                             key={project.id}
                             project={project}
                             runtime={status.runtimes[project.id]}
+                            repos={status.repos[project.id] ?? []}
                             deploy={status.activeDeploys[project.id]}
                             action={status.activeActions[project.id]}
                             busy={busyId === project.id}
@@ -145,6 +147,7 @@ export function ProjectsView() {
 function ProjectCard({
   project,
   runtime,
+  repos,
   deploy,
   action,
   busy,
@@ -155,6 +158,7 @@ function ProjectCard({
 }: {
   project: Project;
   runtime: ProjectRuntime | undefined;
+  repos: RepoStatus[];
   deploy: ActiveDeploy | undefined;
   action: ActiveAction | undefined;
   busy: boolean;
@@ -197,6 +201,14 @@ function ProjectCard({
       </div>
 
       <p className="mt-3 truncate font-mono text-[11px] text-ink-faint" title={project.path}>{project.path.replace(/^\/Users\/[^/]+/, "~")}</p>
+
+      {repos.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {repos.map((repo) => (
+            <RepoBadge key={repo.path} repo={repo} />
+          ))}
+        </div>
+      )}
 
       {deploy && <DeployStrip deploy={deploy} />}
       {action && !deploy && <ActionStrip action={action} />}
@@ -269,16 +281,32 @@ function DeployStrip({ deploy }: { deploy: ActiveDeploy }) {
   );
 }
 
-const actionLabel = { start: "Starting", stop: "Stopping", restart: "Restarting", rebuild: "Rebuilding" } as const;
 
 function ActionStrip({ action }: { action: ActiveAction }) {
   return (
     <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-warn/25 bg-warn/[0.07] px-3 py-2 text-[11px]">
       <Dot tone="warn" pulse />
-      <span className="font-medium text-warn">{actionLabel[action.action]}…</span>
+      <span className="font-medium text-warn">{actionRunning[action.action]}…</span>
       <span className="truncate font-mono text-ink-dim" title={action.command}>
         {action.command}
       </span>
     </div>
+  );
+}
+
+export function RepoBadge({ repo }: { repo: RepoStatus }) {
+  const attention = repo.changed > 0 || repo.behind > 0 || repo.ahead > 0;
+  const title = repo.error
+    ? `${repo.name}: ${repo.error}`
+    : `${repo.name} on ${repo.branch}${repo.changed ? ` · ${repo.changed} changed` : ""}${repo.behind ? ` · ${repo.behind} behind` : ""}${repo.ahead ? ` · ${repo.ahead} ahead` : ""}${repo.upstream ? "" : " · no upstream"}`;
+  return (
+    <span title={title} className={cx("inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px]", repo.error ? "border-danger/30 text-danger" : attention ? "border-warn/30 text-warn" : "border-line text-ink-faint")}>
+      <GitBranch className="size-2.5" />
+      {repo.path !== "." && <span>{repo.name}</span>}
+      <span className={cx(repo.path !== "." && "text-ink-faint")}>{repo.error ? "error" : repo.branch}</span>
+      {repo.changed > 0 && <span>●{repo.changed}</span>}
+      {repo.behind > 0 && <span>↓{repo.behind}</span>}
+      {repo.ahead > 0 && <span>↑{repo.ahead}</span>}
+    </span>
   );
 }

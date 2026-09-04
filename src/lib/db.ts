@@ -108,7 +108,7 @@ export function db() {
   const columns = (connection.prepare("PRAGMA table_info(deployments)").all() as Array<{ name: string }>).map((c) => c.name);
   if (!columns.includes("platform")) connection.exec("ALTER TABLE deployments ADD COLUMN platform TEXT");
   const projectColumns = (connection.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>).map((c) => c.name);
-  for (const column of ["testing_url", "compose_file", "start_command", "stop_command", "restart_command", "rebuild_command", "notes"]) {
+  for (const column of ["testing_url", "compose_file", "start_command", "stop_command", "restart_command", "rebuild_command", "notes", "repo_paths"]) {
     if (!projectColumns.includes(column)) connection.exec(`ALTER TABLE projects ADD COLUMN ${column} TEXT`);
   }
   const deploymentColumns = (connection.prepare("PRAGMA table_info(deployments)").all() as Array<{ name: string }>).map((c) => c.name);

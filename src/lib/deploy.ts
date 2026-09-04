@@ -9,6 +9,7 @@ import { db, now } from "./db";
 import { decrypt, encrypt } from "./crypto";
 import { notifyFinished } from "./notify";
 import { formatBytes } from "./format";
+import { gitProblems } from "./git";
 import { getProject } from "./projects";
 import { getServerRow, parseLock, sshArgs, writeKey, type ServerRow } from "./servers";
 import { killProcessGroup, newControl, run, shQuote, spawnTracked, stream, UserError, waitForExit, type ProcessControl } from "./shell";
@@ -534,32 +535,6 @@ async function healthCheck(url: string, timeoutSeconds: number, control: Process
   return { ok: false, detail: `${last} after ${timeoutSeconds}s` };
 }
 
-// Refuses to build from a working tree with uncommitted changes or commits not yet
-// pulled, so what ships matches the repository. Returns null when there is no git repo.
-export async function gitProblems(projectPath: string): Promise<string | null> {
-  try {
-    const { stdout: top } = await run("git", ["-C", projectPath, "rev-parse", "--show-toplevel"], { timeoutMs: 5000 });
-    const repo = top.trim();
-    if (!repo) return null;
-    const { stdout: porcelain } = await run("git", ["-C", repo, "status", "--porcelain"], { timeoutMs: 10_000 });
-    const changed = porcelain.split("\n").filter(Boolean).length;
-    let behind = 0;
-    try {
-      await run("git", ["-C", repo, "fetch", "--quiet"], { timeoutMs: 20_000 });
-      const { stdout } = await run("git", ["-C", repo, "rev-list", "--count", "HEAD..@{upstream}"], { timeoutMs: 5000 });
-      behind = Number(stdout.trim()) || 0;
-    } catch {
-      // No upstream or offline: only the local state can be checked.
-    }
-    const problems = [];
-    if (changed > 0) problems.push(`${changed} uncommitted change${changed === 1 ? "" : "s"}`);
-    if (behind > 0) problems.push(`${behind} commit${behind === 1 ? "" : "s"} behind origin`);
-    return problems.length ? problems.join(" and ") : null;
-  } catch {
-    return null;
-  }
-}
-
 const LOCK_FILE = "$HOME/.devlaunch/deploy.lock";
 
 async function readLock(server: ServerRow): Promise<DeployLock | null> {
@@ -603,8 +578,8 @@ export async function startRun(
   if (!project) throw new UserError("Project not found");
   const server = getServerRow(config.server_id);
   if (kind === "deploy" && config.require_clean_git !== "0" && !options.force && !options.skipGitCheck) {
-    const problems = await gitProblems(path.resolve(project.path));
-    if (problems) throw new UserError(`GIT_CHECK:${project.name} has ${problems}. Commit and pull first, or deploy anyway.`);
+    const problems = await gitProblems(project);
+    if (problems) throw new UserError(`GIT_CHECK:${problems}. Commit and pull first, or deploy anyway.`);
   }
   await writeKey(server.id, server.private_key);
   if (!options.force) {

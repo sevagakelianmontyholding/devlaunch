@@ -21,6 +21,7 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
   const [testingUrl, setTestingUrl] = useState(project?.testingUrl ?? "");
   const [liveUrl, setLiveUrl] = useState(project?.liveUrl ?? "");
   const [composeFile, setComposeFile] = useState(project?.composeFile ?? "");
+  const [repoPaths, setRepoPaths] = useState(project?.repoPaths.join(", ") ?? "");
   const [commands, setCommands] = useState<Record<ComposeAction, string>>({
     start: project?.commands.start ?? "",
     stop: project?.commands.stop ?? "",
@@ -70,7 +71,7 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
     event.preventDefault();
     setSaving(true);
     setError(null);
-    const input = { path, name, section, localUrl, testingUrl, liveUrl, composeFile, commands };
+    const input = { path, name, section, localUrl, testingUrl, liveUrl, composeFile, commands, repoPaths: repoPaths.split(",").map((item) => item.trim()).filter(Boolean) };
     if (!project && template) {
       const result = await createProjectFromTemplate(input, template.id);
       setSaving(false);
@@ -175,6 +176,11 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
             ))}
           </div>
         </div>
+
+        <Field label="Extra git folders" hint="optional, comma separated">
+          <Input value={repoPaths} onChange={(event) => setRepoPaths(event.target.value)} placeholder="packages/api, packages/web" className="font-mono text-[12px]" />
+          <p className="mt-1 text-[11px] text-ink-faint">Git repositories in the project folder and its immediate subfolders are found automatically. List deeper ones here.</p>
+        </Field>
 
         {error && <ErrorNote>{error}</ErrorNote>}
 

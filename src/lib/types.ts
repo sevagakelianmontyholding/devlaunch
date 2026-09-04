@@ -1,5 +1,7 @@
 export type Section = "work" | "personal";
 export type ComposeAction = "start" | "stop" | "restart" | "rebuild";
+export type GitAction = "fetch" | "pull" | "push" | "commit";
+export type LocalAction = ComposeAction | GitAction;
 
 export type Project = {
   id: string;
@@ -11,6 +13,7 @@ export type Project = {
   liveUrl: string | null;
   composeFile: string | null;
   commands: Record<ComposeAction, string | null>;
+  repoPaths: string[];
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -25,6 +28,7 @@ export type ProjectInput = {
   liveUrl: string;
   composeFile: string;
   commands: Record<ComposeAction, string>;
+  repoPaths: string[];
 };
 
 export type Container = {
@@ -46,7 +50,7 @@ export type ProjectRuntime = {
 export type LocalRun = {
   id: string;
   projectId: string;
-  action: ComposeAction;
+  action: LocalAction;
   command: string;
   status: RunStatus;
   log: string;
@@ -56,7 +60,7 @@ export type LocalRun = {
 
 export type ActiveAction = {
   runId: string;
-  action: ComposeAction;
+  action: LocalAction;
   command: string;
   startedAt: string;
 };
@@ -170,6 +174,7 @@ export type Status = {
   dataDir: string;
   projects: Project[];
   runtimes: Record<string, ProjectRuntime>;
+  repos: Record<string, RepoStatus[]>;
   activeDeploys: Record<string, ActiveDeploy>;
   activeActions: Record<string, ActiveAction>;
   terminal: TerminalSettings;
@@ -299,4 +304,16 @@ export type DashboardData = {
   week: { success: number; error: number; cancelled: number };
   servers: Server[];
   pipelines: Pipeline[];
+};
+
+export type RepoStatus = {
+  path: string;
+  name: string;
+  branch: string;
+  changed: number;
+  ahead: number;
+  behind: number;
+  upstream: boolean;
+  lastCommit: { hash: string; subject: string; date: string } | null;
+  error: string | null;
 };

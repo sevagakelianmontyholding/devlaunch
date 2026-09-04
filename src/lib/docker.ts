@@ -3,7 +3,7 @@ import path from "node:path";
 import { getProject, resolveCommand } from "./projects";
 import { run, spawnTracked, UserError, killProcessGroup } from "./shell";
 import { openFolderInTerminal } from "./terminal";
-import type { ActiveAction, ComposeAction, LocalRun } from "./types";
+import type { ActiveAction, ComposeAction, LocalAction, LocalRun, Project } from "./types";
 
 const LOG_LIMIT = 100_000;
 const globalState = globalThis as unknown as { devlaunchLocalRuns?: Map<string, LocalRun> };
@@ -51,26 +51,30 @@ export function startAction(id: string, action: ComposeAction): LocalRun {
   const project = requireProject(id);
   const command = resolveCommand(project, action);
   if (!command) throw new UserError(`No ${action} command configured. Set a compose file or a command in the project settings.`);
-  if (Object.values(activeActionsByProject()).some((active) => active.runId && localRuns.get(active.runId)?.projectId === id)) {
+  return launchRun(project, action, command, path.resolve(project.path), action === "rebuild" ? 15 * 60_000 : 3 * 60_000, `$ ${command}\n`);
+}
+
+// One tracked local run per project at a time, executed by the user's login
+// shell so it gets the same PATH, nvm, git credentials and aliases a terminal has.
+export function launchRun(project: Project, action: LocalAction, command: string, cwd: string, timeoutMs: number, intro: string): LocalRun {
+  if (Object.values(activeActionsByProject()).some((active) => active.runId && localRuns.get(active.runId)?.projectId === project.id)) {
     throw new UserError("Another command is still running for this project");
   }
 
   const localRun: LocalRun = {
     id: randomUUID(),
-    projectId: id,
+    projectId: project.id,
     action,
     command,
     status: "running",
-    log: `$ ${command}\n`,
+    log: intro,
     startedAt: new Date().toISOString(),
     finishedAt: null,
   };
   localRuns.set(localRun.id, localRun);
   const log = (chunk: string) => (localRun.log = (localRun.log + chunk).slice(-LOG_LIMIT));
 
-  // The user's login shell gives the command the same PATH, nvm, and aliases a terminal has.
-  const child = spawnTracked("/bin/zsh", ["-lc", command], undefined, path.resolve(project.path));
-  const timeoutMs = action === "rebuild" ? 15 * 60_000 : 3 * 60_000;
+  const child = spawnTracked("/bin/zsh", ["-lc", command], undefined, cwd);
   const timer = setTimeout(() => {
     killProcessGroup(child, "SIGKILL");
     log(`\n✖ Timed out after ${Math.round(timeoutMs / 60_000)} minutes\n`);

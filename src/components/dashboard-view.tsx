@@ -5,6 +5,7 @@ import { Activity, ArrowRight, Boxes, Clock, FolderKanban, Plus, Power, Rocket, 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getDashboard, getServerHealth, runCompose } from "@/actions";
 import { formatBytes } from "@/lib/format";
+import { actionRunning } from "@/lib/labels";
 import type { ActiveAction, ActiveDeploy, DashboardData, PipelineRun, RecentRun, ServerHealth } from "@/lib/types";
 import { PageHeader } from "./app-shell";
 import { ProjectDialog } from "./project-dialog";
@@ -33,7 +34,6 @@ const runStatus = {
 };
 const kindLabel = { deploy: "Deploy", commands: "Commands", rollback: "Rollback" } as const;
 const phaseLabel = { building: "Building", uploading: "Uploading", commands: "Server commands", health: "Health check", rollback: "Rolling back" } as const;
-const actionLabel = { start: "Starting", stop: "Stopping", restart: "Restarting", rebuild: "Rebuilding" } as const;
 
 export function DashboardView() {
   const { status, refresh, notify } = useStatus();
@@ -281,7 +281,7 @@ export function DashboardView() {
                       </Link>
                       <p className="flex items-center gap-1.5 text-[11px] text-ink-faint">
                         <Dot tone={!runtime?.exists ? "danger" : deploy ? "accent" : active ? "warn" : isRunning ? "success" : "muted"} pulse={Boolean(deploy || active)} />
-                        {deploy ? "Deploying" : active ? actionLabel[active.action] : !runtime?.exists ? "Folder missing" : isRunning ? `${runtime.containers.filter((container) => container.state === "running").length} containers running` : canToggle ? "Stopped" : "No commands"}
+                        {deploy ? "Deploying" : active ? actionRunning[active.action] : !runtime?.exists ? "Folder missing" : isRunning ? `${runtime.containers.filter((container) => container.state === "running").length} containers running` : canToggle ? "Stopped" : "No commands"}
                       </p>
                     </div>
                     {canToggle && (
@@ -362,7 +362,7 @@ function ActiveActionRow({ projectId, projectName, action }: { projectId: string
     <Link href={`/projects/${projectId}`} className="flex items-center gap-2 rounded-lg border border-warn/25 bg-warn/[0.07] px-3 py-2 text-[12px] transition hover:border-warn/50">
       <Dot tone="warn" pulse />
       <span className="font-medium">{projectName}</span>
-      <span className="text-warn">{actionLabel[action.action]}…</span>
+      <span className="text-warn">{actionRunning[action.action]}…</span>
       <span className="truncate font-mono text-[11px] text-ink-dim">{action.command}</span>
       <span className="ml-auto shrink-0 text-[11px] text-ink-faint">{duration(action.startedAt, null)}</span>
     </Link>

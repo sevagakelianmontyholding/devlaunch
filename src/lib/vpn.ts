@@ -177,7 +177,8 @@ export async function connectVpn(code: string): Promise<VpnStatus> {
   writeFileSync(authPath, `${username}\n${decrypt(encrypted)}${otp}\n`, { mode: 0o600 });
   try {
     await run("sudo", ["-n", binary, ...openvpnArgs()], { timeoutMs: 20_000 });
-    const deadline = Date.now() + 60_000;
+    const started = Date.now();
+    const deadline = started + 60_000;
     while (Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       const log = logTail();
@@ -187,13 +188,13 @@ export async function connectVpn(code: string): Promise<VpnStatus> {
       }
       if (log.includes("Initialization Sequence Completed")) return vpnStatus();
       if (/AUTH_FAILED|auth-failure/i.test(log)) throw new UserError("The VPN rejected the username, password or code");
-      if (/TLS Error|Cannot resolve host|Connection refused|Exiting due to fatal error/i.test(log) && !pidAlive()) {
+      // OpenVPN forks into the background and only then writes its pid file,
+      // so a missing pid early on means "not yet", not "gone". Treat it as
+      // stopped only when the log says it exited, or the pid vanished later.
+      const exited = /Exiting due to fatal error|SIGTERM\[|process exiting/i.test(log);
+      if (exited || (!pidAlive() && Date.now() > started + 20_000)) {
         const line = log.split("\n").filter(Boolean).at(-1) ?? "OpenVPN exited";
-        throw new UserError(`Could not connect: ${line.replace(/^.*?\d{4} /, "").slice(0, 200)}`);
-      }
-      if (!pidAlive() && log.length > 0 && Date.now() > deadline - 55_000) {
-        const line = log.split("\n").filter(Boolean).at(-1) ?? "OpenVPN exited";
-        throw new UserError(`OpenVPN stopped: ${line.slice(-200)}`);
+        throw new UserError(`Could not connect: ${line.replace(/^\S+ \S+ /, "").slice(0, 200)}`);
       }
     }
     await disconnectVpn().catch(() => undefined);

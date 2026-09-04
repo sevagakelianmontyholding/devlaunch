@@ -1,7 +1,7 @@
 export type Section = "work" | "personal";
 export type ComposeAction = "start" | "stop" | "restart" | "rebuild";
 export type GitAction = "fetch" | "pull" | "push" | "commit";
-export type LocalAction = ComposeAction | GitAction;
+export type LocalAction = ComposeAction | GitAction | "custom";
 
 export type Project = {
   id: string;
@@ -51,6 +51,7 @@ export type LocalRun = {
   id: string;
   projectId: string;
   action: LocalAction;
+  label: string | null;
   command: string;
   status: RunStatus;
   log: string;
@@ -61,6 +62,7 @@ export type LocalRun = {
 export type ActiveAction = {
   runId: string;
   action: LocalAction;
+  label: string | null;
   command: string;
   startedAt: string;
 };
@@ -176,6 +178,7 @@ export type Status = {
   runtimes: Record<string, ProjectRuntime>;
   repos: Record<string, RepoStatus[]>;
   uptime: Record<string, UptimeStatus>;
+  actions: Record<string, ProjectAction[]>;
   activeDeploys: Record<string, ActiveDeploy>;
   activeActions: Record<string, ActiveAction>;
   terminal: TerminalSettings;
@@ -328,4 +331,26 @@ export type UptimeStatus = {
   error: string | null;
   checkedAt: string | null;
   since: string;
+};
+
+export type ProjectAction = {
+  id: string;
+  projectId: string;
+  name: string;
+  command: string;
+  serverId: string | null;
+  serverName: string | null;
+  workingDir: string;
+  confirm: boolean;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProjectActionInput = {
+  name: string;
+  command: string;
+  serverId: string | null;
+  workingDir: string;
+  confirm: boolean;
 };

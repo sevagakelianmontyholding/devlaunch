@@ -11,6 +11,7 @@ import { NotesCard } from "./notes-card";
 import { useNavigate } from "./navigate";
 import { ProjectDialog } from "./project-dialog";
 import { ReposCard } from "./repos-card";
+import { ActionsCard } from "./actions-card";
 import { LiveStatus } from "./projects-view";
 import { actionDone, actionRunning as runningLabel } from "@/lib/labels";
 import { SaveTemplateDialog } from "./templates-card";
@@ -247,6 +248,7 @@ export function ProjectView({ id }: { id: string }) {
         </div>
 
         <div className="space-y-4">
+          <ActionsCard project={project} actions={status.actions[project.id] ?? []} />
           <NotesCard project={project} />
 
           <Card>

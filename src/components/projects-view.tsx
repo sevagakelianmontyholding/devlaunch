@@ -290,7 +290,7 @@ function ActionStrip({ action }: { action: ActiveAction }) {
   return (
     <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-warn/25 bg-warn/[0.07] px-3 py-2 text-[11px]">
       <Dot tone="warn" pulse />
-      <span className="font-medium text-warn">{actionRunning[action.action]}…</span>
+      <span className="font-medium text-warn">{action.label ?? actionRunning[action.action]}…</span>
       <span className="truncate font-mono text-ink-dim" title={action.command}>
         {action.command}
       </span>

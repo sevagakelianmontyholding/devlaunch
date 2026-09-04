@@ -1,8 +1,8 @@
 "use client";
 
-import { Boxes, Code2, FolderKanban, LayoutDashboard, Power, Rocket, Search, Server, Settings, TerminalSquare, Workflow } from "lucide-react";
+import { Boxes, Code2, FolderKanban, LayoutDashboard, Play, Power, Rocket, Search, Server, Settings, TerminalSquare, Workflow } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { openProject, openProjectTerminal, runCompose } from "@/actions";
+import { openProject, openProjectTerminal, runAction, runCompose } from "@/actions";
 import { useNavigate } from "./navigate";
 import { useStatus } from "./status-provider";
 import { cx } from "./ui";
@@ -58,6 +58,20 @@ export function CommandPalette() {
       }
       list.push({ id: `code:${project.id}`, label: `Open ${project.name} in VS Code`, icon: <Code2 className="size-4" />, run: () => void openProject(project.id) });
       list.push({ id: `term:${project.id}`, label: `Open ${project.name} in terminal`, icon: <TerminalSquare className="size-4" />, run: () => void openProjectTerminal(project.id) });
+      for (const action of status.actions[project.id] ?? []) {
+        list.push({
+          id: `action:${action.id}`,
+          label: `${action.name} · ${project.name}`,
+          hint: action.confirm ? "Opens the project (asks first)" : action.serverName ? `Run on ${action.serverName}` : "Run on this Mac",
+          icon: <Play className="size-4 text-accent" />,
+          run: async () => {
+            if (action.confirm) return navigate(`/projects/${project.id}`);
+            const result = await runAction(action.id);
+            notify(result.ok ? "success" : "error", result.ok ? `Running ${action.name}` : result.error);
+            void refresh();
+          },
+        });
+      }
       if ((status.deployments[project.id] ?? []).length > 0) {
         list.push({ id: `deploy:${project.id}`, label: `Deploy ${project.name}`, hint: "Opens the project", icon: <Rocket className="size-4 text-accent" />, run: () => navigate(`/projects/${project.id}`) });
       }

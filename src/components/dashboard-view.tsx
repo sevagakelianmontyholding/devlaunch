@@ -367,7 +367,7 @@ function ActiveActionRow({ projectId, projectName, action }: { projectId: string
     <Link href={`/projects/${projectId}`} className="flex items-center gap-2 rounded-lg border border-warn/25 bg-warn/[0.07] px-3 py-2 text-[12px] transition hover:border-warn/50">
       <Dot tone="warn" pulse />
       <span className="font-medium">{projectName}</span>
-      <span className="text-warn">{actionRunning[action.action]}…</span>
+      <span className="text-warn">{action.label ?? actionRunning[action.action]}…</span>
       <span className="truncate font-mono text-[11px] text-ink-dim">{action.command}</span>
       <span className="ml-auto shrink-0 text-[11px] text-ink-faint">{duration(action.startedAt, null)}</span>
     </Link>

@@ -4,6 +4,7 @@ import { dataDir } from "./db";
 import { activeDeploysByProject, deploymentSummariesByProject } from "./deploy";
 import { activeActionsByProject } from "./docker";
 import { repoStatuses } from "./git";
+import { actionsByProject } from "./project-actions";
 import { activePipelineRunsById, ensureScheduler } from "./pipelines";
 import { getTerminalSettings } from "./terminal";
 import { ensureUptimeMonitor, uptimeByProject } from "./uptime";
@@ -83,6 +84,7 @@ export async function getStatus(user: SessionUser): Promise<Status> {
     runtimes: Object.fromEntries(runtimes.map((runtime) => [runtime.id, runtime])),
     repos: Object.fromEntries(repos),
     uptime: uptimeByProject(),
+    actions: actionsByProject(),
     activeDeploys: activeDeploysByProject(),
     activeActions: activeActionsByProject(),
     terminal: getTerminalSettings(),

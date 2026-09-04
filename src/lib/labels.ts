@@ -9,6 +9,7 @@ export const actionRunning: Record<LocalAction, string> = {
   pull: "Pulling",
   push: "Pushing",
   commit: "Committing and pushing",
+  custom: "Running",
 };
 
 export const actionDone: Record<LocalAction, string> = {
@@ -20,4 +21,5 @@ export const actionDone: Record<LocalAction, string> = {
   pull: "Pulled",
   push: "Pushed",
   commit: "Committed and pushed",
+  custom: "Finished",
 };

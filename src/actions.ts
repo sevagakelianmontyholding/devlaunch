@@ -8,6 +8,7 @@ import { activePipelineRunsById, deletePipeline, listPipelines, savePipeline, st
 import { openInEditor, openInTerminal, startAction } from "@/lib/docker";
 import { startGitRun } from "@/lib/git";
 import { checkSite } from "@/lib/uptime";
+import { deleteProjectAction, runProjectAction as startProjectAction, saveProjectAction } from "@/lib/project-actions";
 import { getProject } from "@/lib/projects";
 import { saveTerminalSettings } from "@/lib/terminal";
 import { createProject, deleteProject, pickFolder, saveNotes, uniqueId, updateProject } from "@/lib/projects";
@@ -30,6 +31,8 @@ import type {
   PipelineInput,
   PipelineRun,
   Project,
+  ProjectAction,
+  ProjectActionInput,
   ProjectTemplate,
   RunKind,
   ServerHealth,
@@ -130,6 +133,18 @@ export async function runCompose(id: string, action: ComposeAction): Promise<Act
 
 export async function runGit(projectId: string, repoPath: string | null, action: GitAction, message?: string): Promise<ActionResult<LocalRun>> {
   return attempt(() => startGitRun(projectId, repoPath, action, message));
+}
+
+export async function saveAction(projectId: string, id: string | null, input: ProjectActionInput): Promise<ActionResult<ProjectAction>> {
+  return attempt(() => saveProjectAction(projectId, id, input));
+}
+
+export async function removeAction(id: string): Promise<ActionResult<ProjectAction>> {
+  return attempt(() => deleteProjectAction(id));
+}
+
+export async function runAction(id: string): Promise<ActionResult<LocalRun>> {
+  return attempt(() => startProjectAction(id));
 }
 
 export async function checkLiveSite(projectId: string): Promise<ActionResult<UptimeStatus>> {

@@ -33,7 +33,7 @@ export function activeActionsByProject() {
   const result: Record<string, ActiveAction> = {};
   for (const localRun of localRuns.values()) {
     if (localRun.status === "running") {
-      result[localRun.projectId] = { runId: localRun.id, action: localRun.action, command: localRun.command, startedAt: localRun.startedAt };
+      result[localRun.projectId] = { runId: localRun.id, action: localRun.action, label: localRun.label, command: localRun.command, startedAt: localRun.startedAt };
     }
   }
   return result;
@@ -56,7 +56,7 @@ export function startAction(id: string, action: ComposeAction): LocalRun {
 
 // One tracked local run per project at a time, executed by the user's login
 // shell so it gets the same PATH, nvm, git credentials and aliases a terminal has.
-export function launchRun(project: Project, action: LocalAction, command: string, cwd: string, timeoutMs: number, intro: string): LocalRun {
+export function launchRun(project: Project, action: LocalAction, command: string, cwd: string, timeoutMs: number, intro: string, label: string | null = null): LocalRun {
   if (Object.values(activeActionsByProject()).some((active) => active.runId && localRuns.get(active.runId)?.projectId === project.id)) {
     throw new UserError("Another command is still running for this project");
   }
@@ -65,6 +65,7 @@ export function launchRun(project: Project, action: LocalAction, command: string
     id: randomUUID(),
     projectId: project.id,
     action,
+    label,
     command,
     status: "running",
     log: intro,

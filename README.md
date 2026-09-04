@@ -39,6 +39,10 @@ Per project you set an optional **compose file** (relative path) and optional **
 
 DevLaunch finds git repositories in the project folder and its immediate subfolders (so a project with `frontend/` and `backend/` repos shows both); deeper ones can be listed in the project form. Repos with an upstream are fetched in the background every five minutes (non-interactively, so a repo needing a password is simply skipped), so the counts stay current. The project card shows a badge per repo (branch, changed files, commits behind/ahead), and the project page has a **Repositories** card with Fetch, Pull (fast-forward only, refused while there are uncommitted changes), Push, and **Commit & push** (stages everything, commits with your message, pushes). All of it runs your own `git` with your usual credentials; nothing talks to GitHub directly. The clean-tree check before a deploy covers every repo of the project.
 
+## Actions
+
+Each project can have its own buttons: **Actions → Add** on the project page. An action is a name and one or more command lines (run in order, stopping at the first failure), executed either on this Mac in the project folder (or a subfolder) or on a deploy server in the directory you give. Tick *Ask before running* for anything destructive. Actions run with streamed output like start/stop, and appear in ⌘K as "Run migrations · Comium".
+
 ## Deploy servers
 
 Each person should use their **own** SSH key — never share private keys.

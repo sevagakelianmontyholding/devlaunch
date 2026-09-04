@@ -67,7 +67,7 @@ export function ReposCard({ project, repos }: { project: Project; repos: RepoSta
               <IconButton label="Fetch all" onClick={() => void start(null, "fetch")} disabled={running} className={cx(busy === "*:fetch" && "animate-spin")}>
                 <RefreshCw className="size-3.5" />
               </IconButton>
-              <Button size="sm" icon={<ArrowDownToLine className="size-3.5" />} onClick={() => void start(null, "pull")} disabled={running || behind === 0} busy={busy === "*:pull"} title="git pull --ff-only in every repository">
+              <Button size="sm" icon={<ArrowDownToLine className="size-3.5" />} onClick={() => void start(null, "pull")} disabled={running || repos.some((repo) => repo.changed > 0)} busy={busy === "*:pull"} title={repos.some((repo) => repo.changed > 0) ? "Commit or stash the changed repositories first" : "Fetches and fast-forwards every repository"}>
                 Pull all
               </Button>
               <Button size="sm" icon={<ArrowUpFromLine className="size-3.5" />} onClick={() => void start(null, "push")} disabled={running || ahead === 0} busy={busy === "*:push"} title="git push in every repository">
@@ -116,7 +116,7 @@ export function ReposCard({ project, repos }: { project: Project; repos: RepoSta
                 <IconButton label="Fetch" onClick={() => void start(repo.path, "fetch")} disabled={running || Boolean(repo.error)}>
                   <RefreshCw className={cx("size-3.5", busy === `${repo.path}:fetch` && "animate-spin")} />
                 </IconButton>
-                <IconButton label={repo.changed > 0 ? "Pull (commit or stash your changes first)" : "Pull (fast-forward only)"} onClick={() => void start(repo.path, "pull")} disabled={running || Boolean(repo.error) || repo.changed > 0}>
+                <IconButton label={repo.changed > 0 ? "Pull (commit or stash your changes first)" : "Pull (fetches first, fast-forward only)"} onClick={() => void start(repo.path, "pull")} disabled={running || Boolean(repo.error) || repo.changed > 0}>
                   <ArrowDownToLine className="size-3.5" />
                 </IconButton>
                 <IconButton label="Push" onClick={() => void start(repo.path, "push")} disabled={running || Boolean(repo.error) || (repo.ahead === 0 && repo.upstream)}>

@@ -7,6 +7,21 @@ import { run, shQuote, UserError } from "./shell";
 import type { GitAction, LocalRun, Project, RepoStatus } from "./types";
 
 const MAX_REPOS = 12;
+const AUTO_FETCH_MS = 5 * 60_000;
+
+// Background fetches keep the behind/ahead counts honest without the user
+// pressing Fetch. Non-interactive: a repo that needs a password is skipped.
+const globalState = globalThis as unknown as { devlaunchFetches?: Map<string, number> };
+const lastFetch = (globalState.devlaunchFetches ??= new Map());
+
+function autoFetch(abs: string) {
+  const previous = lastFetch.get(abs) ?? 0;
+  if (Date.now() - previous < AUTO_FETCH_MS) return;
+  lastFetch.set(abs, Date.now());
+  void run("git", ["-C", abs, "fetch", "--quiet", "--prune"], { timeoutMs: 60_000, env: { GIT_TERMINAL_PROMPT: "0", GIT_SSH_COMMAND: "ssh -o BatchMode=yes" } }).catch(() => {
+    // Offline or no credentials: try again next interval.
+  });
+}
 const SKIP = new Set(["node_modules", "vendor", "dist", "build", ".next"]);
 
 async function isRepo(dir: string) {
@@ -80,7 +95,9 @@ async function statusFor(repo: { path: string; name: string; abs: string }): Pro
 
 export async function repoStatuses(project: Project): Promise<RepoStatus[]> {
   const repos = await discoverRepos(project);
-  return Promise.all(repos.map(statusFor));
+  const statuses = await Promise.all(repos.map(statusFor));
+  for (const [index, repo] of repos.entries()) if (statuses[index]!.upstream) autoFetch(repo.abs);
+  return statuses;
 }
 
 // Deploy pre-check across every repo of the project: uncommitted changes or
@@ -138,6 +155,7 @@ export async function startGitRun(projectId: string, repoPath: string | null, ac
     steps.push(`echo "▶ ${repo.name.replaceAll('"', "")}" && (cd ${shQuote(repo.abs)} && ${command})`);
   }
   if (steps.length === 0) throw new UserError("Nothing to commit or push");
+  if (action === "fetch" || action === "pull") for (const repo of repos) lastFetch.set(repo.abs, Date.now());
   const label = repos.length === 1 ? `${verbs[action]} ${repos[0]!.name}` : `${verbs[action]} ${repos.length} repositories`;
   return launchRun(project, action, steps.join(" && "), path.resolve(project.path), 5 * 60_000, `${label}\n`);
 }

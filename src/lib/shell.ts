@@ -14,11 +14,11 @@ export class UserError extends Error {}
 export async function run(
   command: string,
   args: string[],
-  options: { cwd?: string; timeoutMs?: number } = {},
+  options: { cwd?: string; timeoutMs?: number; env?: Record<string, string> } = {},
 ) {
   const { stdout, stderr } = await execFileAsync(command, args, {
     cwd: options.cwd,
-    env: shellEnv,
+    env: options.env ? { ...shellEnv, ...options.env } : shellEnv,
     timeout: options.timeoutMs ?? 10_000,
     maxBuffer: 8 * 1024 * 1024,
   });

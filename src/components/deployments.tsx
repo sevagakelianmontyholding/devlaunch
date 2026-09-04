@@ -286,7 +286,7 @@ export function Deployments({ projectId }: { projectId: string }) {
                       {logOpen ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />} Log
                     </button>
                     {logOpen && (
-                      <TerminalView text={live.log || "Waiting for output…"} rows={22} className="mt-2" />
+                      <TerminalView text={live.log || "Waiting for output…"} rows={18} className="mt-2" />
                     )}
                   </div>
                 )}

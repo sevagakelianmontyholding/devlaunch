@@ -50,7 +50,7 @@ export function LogsPanel({ projectId, enabled }: { projectId: string; enabled: 
       ) : error ? (
         <p className="text-[12px] text-danger">{error}</p>
       ) : (
-        <TerminalView text={logs ?? ""} rows={22} />
+        <TerminalView text={logs ?? ""} rows={14} />
       )}
     </Card>
   );

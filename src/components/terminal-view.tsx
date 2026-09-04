@@ -60,11 +60,17 @@ export function TerminalView({ runId, text, rows = 16, className, interactive = 
       const fit = new FitAddon();
       term.loadAddon(fit);
       term.open(containerRef.current);
-      try {
-        fit.fit();
-      } catch {
-        // Hidden container: the observer refits once it has a size.
-      }
+      // Only the width follows the panel; the height is fixed by `rows` so the
+      // panel never grows with its content (it scrolls instead).
+      const refit = () => {
+        try {
+          const dims = fit.proposeDimensions();
+          if (dims && dims.cols > 20 && term) term.resize(dims.cols, rows);
+        } catch {
+          // Hidden container: retried on the next resize.
+        }
+      };
+      refit();
       termRef.current = term;
       writtenRef.current = "";
       // Handy for debugging from the console: element.terminal.buffer.active
@@ -73,13 +79,7 @@ export function TerminalView({ runId, text, rows = 16, className, interactive = 
         if (term) term.options.theme = readTheme();
       });
       observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-      resize = new ResizeObserver(() => {
-        try {
-          fit.fit();
-        } catch {
-          // Ignore transient layout states.
-        }
-      });
+      resize = new ResizeObserver(refit);
       resize.observe(containerRef.current);
       setReady((count) => count + 1);
     })();
@@ -136,7 +136,7 @@ export function TerminalView({ runId, text, rows = 16, className, interactive = 
       ref={containerRef}
       onClick={() => interactive && termRef.current?.focus()}
       className={cx("overflow-hidden rounded-lg border border-line p-2", interactive ? "cursor-text" : "", className)}
-      style={{ background: "var(--terminal-bg, #07070a)" }}
+      style={{ background: "var(--terminal-bg, #07070a)", height: `${Math.round(rows * 12 * 1.2) + 16}px` }}
     />
   );
 }

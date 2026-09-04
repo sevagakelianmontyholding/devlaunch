@@ -300,10 +300,10 @@ export function RepoBadge({ repo }: { repo: RepoStatus }) {
     ? `${repo.name}: ${repo.error}`
     : `${repo.name} on ${repo.branch}${repo.changed ? ` · ${repo.changed} changed` : ""}${repo.behind ? ` · ${repo.behind} behind` : ""}${repo.ahead ? ` · ${repo.ahead} ahead` : ""}${repo.upstream ? "" : " · no upstream"}`;
   return (
-    <span title={title} className={cx("inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px]", repo.error ? "border-danger/30 text-danger" : attention ? "border-warn/30 text-warn" : "border-line text-ink-faint")}>
+    <span title={title} className={cx("inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px]", repo.error ? "border-danger/30 bg-danger/[0.08] text-danger" : attention ? "border-warn/30 bg-warn/[0.1] text-warn" : "border-success/30 bg-success/[0.08] text-success")}>
       <GitBranch className="size-2.5" />
       {repo.path !== "." && <span>{repo.name}</span>}
-      <span className={cx(repo.path !== "." && "text-ink-faint")}>{repo.error ? "error" : repo.branch}</span>
+      <span className={cx(repo.path !== "." && "opacity-70")}>{repo.error ? "error" : repo.branch}</span>
       {repo.changed > 0 && <span>●{repo.changed}</span>}
       {repo.behind > 0 && <span>↓{repo.behind}</span>}
       {repo.ahead > 0 && <span>↑{repo.ahead}</span>}

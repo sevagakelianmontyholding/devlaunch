@@ -115,11 +115,29 @@ function pidAlive() {
   }
 }
 
-function logTail() {
+// null when the log cannot be read (a root-owned file from an older run).
+function logTail(): string | null {
   try {
     return readFileSync(logPath, "utf8").slice(-20_000);
   } catch {
-    return "";
+    return existsSync(logPath) ? null : "";
+  }
+}
+
+// OpenVPN runs as root; if it creates the log itself the file is root-only.
+// Creating it first, owned by us and world-readable, keeps it readable.
+function prepareFiles() {
+  mkdirSync(vpnDir, { recursive: true, mode: 0o700 });
+  rmSync(logPath, { force: true });
+  rmSync(pidPath, { force: true });
+  writeFileSync(logPath, "", { mode: 0o644 });
+}
+
+function pidAge() {
+  try {
+    return Date.now() - statSync(pidPath).mtimeMs;
+  } catch {
+    return 0;
   }
 }
 
@@ -129,7 +147,8 @@ export function vpnStatus(): VpnStatus {
   const pid = pidAlive();
   if (!pid) return { state: configured ? "disconnected" : "unconfigured", host, since: null, detail: null };
   const log = logTail();
-  if (log.includes("Initialization Sequence Completed")) {
+  // Unreadable log: assume connected once the daemon has stayed up a while.
+  if (log === null ? pidAge() > 15_000 : log.includes("Initialization Sequence Completed")) {
     let since: string | null = null;
     try {
       since = statSync(pidPath).mtime.toISOString();
@@ -154,9 +173,7 @@ export async function connectVpn(code: string): Promise<VpnStatus> {
   if (pidAlive()) throw new UserError("The VPN is already running");
   if (!(await sudoAllowed(binary))) throw new UserError("SETUP:Run the one-time setup command from Settings → VPN first");
 
-  mkdirSync(vpnDir, { recursive: true, mode: 0o700 });
-  rmSync(logPath, { force: true });
-  rmSync(pidPath, { force: true });
+  prepareFiles();
   writeFileSync(authPath, `${username}\n${decrypt(encrypted)}${otp}\n`, { mode: 0o600 });
   try {
     await run("sudo", ["-n", binary, ...openvpnArgs()], { timeoutMs: 20_000 });
@@ -164,6 +181,10 @@ export async function connectVpn(code: string): Promise<VpnStatus> {
     while (Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       const log = logTail();
+      if (log === null) {
+        if (pidAlive() && pidAge() > 15_000) return vpnStatus();
+        continue;
+      }
       if (log.includes("Initialization Sequence Completed")) return vpnStatus();
       if (/AUTH_FAILED|auth-failure/i.test(log)) throw new UserError("The VPN rejected the username, password or code");
       if (/TLS Error|Cannot resolve host|Connection refused|Exiting due to fatal error/i.test(log) && !pidAlive()) {

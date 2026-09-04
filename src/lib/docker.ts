@@ -127,11 +127,12 @@ export async function composeLogs(id: string, tail = 150) {
 }
 
 // Sends a line to a running command's stdin (an answer to a prompt).
-export function writeRunInput(id: string, text: string) {
+// A typed reply gets a newline; a key (arrow, Enter, Ctrl+C) is sent as-is.
+export function writeRunInput(id: string, text: string, raw = false) {
   const localRun = localRuns.get(id);
   const child = runChildren.get(id);
   if (!localRun || localRun.status !== "running" || !child?.stdin || child.stdin.destroyed) throw new UserError("That command is not waiting for input");
-  child.stdin.write(`${text.replace(/[\r\n]+$/, "")}\n`);
+  child.stdin.write(raw ? text : `${text.replace(/[\r\n]+$/, "")}\n`);
 }
 
 export function stopLocalRun(id: string) {

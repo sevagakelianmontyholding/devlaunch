@@ -19,9 +19,9 @@ export async function POST(request: Request, context: RouteContext<"/api/local-r
   const { id } = await context.params;
   if (!(await currentUser())) return Response.json({ error: "Sign in to continue" }, { status: 401 });
   try {
-    const body = (await request.json()) as { text?: unknown };
+    const body = (await request.json()) as { text?: unknown; raw?: unknown };
     if (typeof body.text !== "string" || body.text.length > 1000) return Response.json({ error: "Send a short line of text" }, { status: 400 });
-    writeRunInput(id, body.text);
+    writeRunInput(id, body.text, body.raw === true);
     return Response.json({ ok: true });
   } catch (error) {
     const message = error instanceof UserError ? error.message : "Could not send input";

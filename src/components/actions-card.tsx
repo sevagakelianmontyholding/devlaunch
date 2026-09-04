@@ -54,14 +54,31 @@ export function ActionsCard({ project, actions }: { project: Project; actions: P
     void refresh();
   };
 
-  const sendReply = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const send = async (text: string, raw: boolean) => {
     if (!run) return;
-    const text = reply;
-    setReply("");
-    const response = await fetch(`/api/local-runs/${run.id}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
+    const response = await fetch(`/api/local-runs/${run.id}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, raw }) });
     if (!response.ok) notify("error", ((await response.json()) as { error?: string }).error ?? "Could not send the reply");
   };
+
+  const sendReply = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const text = reply;
+    setReply("");
+    await send(text, false);
+  };
+
+  // Keystrokes for menu-style prompts (Laravel Prompts, inquirer, …).
+  const keys: Array<{ label: string; text: string; title: string }> = [
+    { label: "Yes", text: "y", title: "Press y" },
+    { label: "No", text: "n", title: "Press n" },
+    { label: "Enter", text: "\n", title: "Press Enter" },
+    { label: "←", text: "\x1b[D", title: "Left arrow" },
+    { label: "→", text: "\x1b[C", title: "Right arrow" },
+    { label: "↑", text: "\x1b[A", title: "Up arrow" },
+    { label: "↓", text: "\x1b[B", title: "Down arrow" },
+    { label: "Space", text: " ", title: "Space (toggle a choice)" },
+    { label: "Ctrl+C", text: "\x03", title: "Interrupt" },
+  ];
 
   const stop = async () => {
     if (!run) return;
@@ -189,12 +206,22 @@ export function ActionsCard({ project, actions }: { project: Project; actions: P
             {run.log}
           </pre>
           {run.status === "running" && (
-            <form onSubmit={sendReply} className="mt-2 flex items-center gap-2">
-              <Input value={reply} onChange={(event) => setReply(event.target.value)} placeholder="If the command asks something, type the answer here and press Enter (e.g. yes)" className="font-mono text-[12px]" autoComplete="off" />
-              <Button type="submit" size="sm" icon={<CornerDownLeft className="size-3.5" />}>
-                Send
-              </Button>
-            </form>
+            <div className="mt-2 space-y-2">
+              <form onSubmit={sendReply} className="flex items-center gap-2">
+                <Input value={reply} onChange={(event) => setReply(event.target.value)} placeholder="If the command asks something, type the answer and press Enter" className="font-mono text-[12px]" autoComplete="off" />
+                <Button type="submit" size="sm" icon={<CornerDownLeft className="size-3.5" />}>
+                  Send
+                </Button>
+              </form>
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="mr-1 text-[11px] text-ink-faint">Keys:</span>
+                {keys.map((key) => (
+                  <button key={key.label} type="button" title={key.title} onClick={() => void send(key.text, true)} className="rounded-md border border-line bg-bg px-2 py-0.5 font-mono text-[11px] text-ink-dim transition hover:border-line-strong hover:text-ink">
+                    {key.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       )}

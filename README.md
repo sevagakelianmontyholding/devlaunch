@@ -84,6 +84,15 @@ While a run is in progress, DevLaunch writes `~/.devlaunch/deploy.lock` on the s
 
 On a project page, **Save as template** keeps its section, URLs, compose file, local commands and deployments (env file contents excluded). When adding the next project, choose the template at the top of the form: the fields are filled in and the deployments are created on the new project. Wherever the original project's id or folder name appeared (image name, server path, URLs), the template uses `{slug}` or `{folder}` so the new project gets its own values; `{name}` is available too. Templates are listed in Settings.
 
+## Office VPN (OpenVPN with a one-time code)
+
+If the servers are only reachable through an OpenVPN connection whose password is "fixed password + code from your authenticator", DevLaunch can open the tunnel so you only type the code:
+
+1. `brew install openvpn`
+2. **Settings → VPN**: paste your `.ovpn` profile (or its path), the VPN username, and the fixed part of the password. The password is stored encrypted like env files; the code is never stored.
+3. Run the one-time setup command shown there in a terminal (it asks for your Mac password). It writes a `sudoers` rule that lets your user start and stop OpenVPN for that profile only, with exactly one command line and nothing else.
+4. On the dashboard, **VPN → Connect**, type the code, done. Disconnect from the same place. The tunnel runs as long as your Mac is awake; DevLaunch shows its state and points at it when a server is unreachable.
+
 ## Pipelines
 
 **Pipelines** chain deployments in order (for example backend, then frontend) behind one Run button, stopping at the first failure. A pipeline can also run daily at a set time while DevLaunch is running.

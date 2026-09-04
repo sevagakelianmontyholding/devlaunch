@@ -10,6 +10,7 @@ import type { ActiveAction, ActiveDeploy, DashboardData, PipelineRun, RecentRun,
 import { PageHeader } from "./app-shell";
 import { ProjectDialog } from "./project-dialog";
 import { LockStrip } from "./projects-view";
+import { VpnPill } from "./vpn-card";
 import { useStatus } from "./status-provider";
 import { Button, Card, CardTitle, Dot, IconButton, Monogram, cx, timeAgo } from "./ui";
 
@@ -111,9 +112,12 @@ export function DashboardView() {
         title={greeting(status.user.username)}
         subtitle={new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
         actions={
-          <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>
-            Add project
-          </Button>
+          <>
+            <VpnPill />
+            <Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>
+              Add project
+            </Button>
+          </>
         }
       />
 
@@ -141,7 +145,7 @@ export function DashboardView() {
           icon={<Server className="size-4" />}
           label="Servers"
           value={data?.servers.length ?? "–"}
-          detail={reachable === null ? "Checking over SSH…" : `${reachable} of ${data?.servers.length ?? 0} reachable`}
+          detail={reachable === null ? "Checking over SSH…" : reachable === 0 && data && data.servers.length > 0 && status.vpn.state !== "connected" && status.vpn.state !== "unconfigured" ? "Unreachable — connect the VPN" : `${reachable} of ${data?.servers.length ?? 0} reachable`}
           tone={reachable !== null && data && reachable < data.servers.length ? "danger" : undefined}
         />
       </div>

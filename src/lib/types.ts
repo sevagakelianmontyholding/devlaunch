@@ -181,6 +181,7 @@ export type Status = {
   uptime: Record<string, UptimeStatus>;
   actions: Record<string, ProjectAction[]>;
   locks: Record<string, ServerLock>;
+  vpn: VpnStatus;
   activeDeploys: Record<string, ActiveDeploy>;
   activeActions: Record<string, ActiveAction>;
   terminal: TerminalSettings;
@@ -360,3 +361,20 @@ export type ProjectActionInput = {
 };
 
 export type ServerLock = { serverId: string; serverName: string; lock: DeployLock };
+
+export type VpnStatus = {
+  state: "unconfigured" | "disconnected" | "connecting" | "connected";
+  host: string | null;
+  since: string | null;
+  detail: string | null;
+};
+
+export type VpnSettings = {
+  binaryFound: boolean;
+  profileSaved: boolean;
+  host: string | null;
+  username: string;
+  passwordSaved: boolean;
+  sudoReady: boolean;
+  setupCommand: string;
+};

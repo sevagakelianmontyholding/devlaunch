@@ -8,6 +8,7 @@ import { activePipelineRunsById, deletePipeline, listPipelines, savePipeline, st
 import { openInEditor, openInTerminal, startAction } from "@/lib/docker";
 import { startGitRun } from "@/lib/git";
 import { checkSite } from "@/lib/uptime";
+import { connectVpn as startVpn, disconnectVpn as stopVpn, forgetVpn, getVpnSettings as loadVpnSettings, saveVpnCredentials, saveVpnProfile } from "@/lib/vpn";
 import { deleteProjectAction, runProjectAction as startProjectAction, saveProjectAction } from "@/lib/project-actions";
 import { stopLocalRun } from "@/lib/docker";
 import { getProject } from "@/lib/projects";
@@ -44,6 +45,8 @@ import type {
   TerminalApp,
   TerminalSettings,
   UptimeStatus,
+  VpnSettings,
+  VpnStatus,
 } from "@/lib/types";
 
 async function attempt<T>(work: (user: SessionUser) => Promise<T> | T, options: { public?: boolean } = {}): Promise<ActionResult<T>> {
@@ -240,6 +243,35 @@ export async function openServerTerminal(serverId: string, remotePath?: string |
     await openSsh(serverId, remotePath);
     return undefined;
   });
+}
+
+// VPN
+export async function getVpnSettings(): Promise<VpnSettings> {
+  await requireUser();
+  return loadVpnSettings();
+}
+
+export async function saveVpn(profile: string, username: string, password: string): Promise<ActionResult<VpnSettings>> {
+  return attempt(async () => {
+    if (profile.trim()) saveVpnProfile(profile);
+    saveVpnCredentials(username, password);
+    return loadVpnSettings();
+  });
+}
+
+export async function removeVpn(): Promise<ActionResult<VpnSettings>> {
+  return attempt(async () => {
+    forgetVpn();
+    return loadVpnSettings();
+  });
+}
+
+export async function connectVpn(code: string): Promise<ActionResult<VpnStatus>> {
+  return attempt(() => startVpn(code));
+}
+
+export async function disconnectVpn(): Promise<ActionResult<VpnStatus>> {
+  return attempt(() => stopVpn());
 }
 
 // Servers health

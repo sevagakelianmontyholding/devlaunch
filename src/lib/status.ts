@@ -6,6 +6,7 @@ import { activeActionsByProject } from "./docker";
 import { repoStatuses } from "./git";
 import { actionsByProject } from "./project-actions";
 import { ensureLockMonitor, heldLocks } from "./locks";
+import { vpnStatus } from "./vpn";
 import { activePipelineRunsById, ensureScheduler } from "./pipelines";
 import { getTerminalSettings } from "./terminal";
 import { ensureUptimeMonitor, uptimeByProject } from "./uptime";
@@ -88,6 +89,7 @@ export async function getStatus(user: SessionUser): Promise<Status> {
     uptime: uptimeByProject(),
     actions: actionsByProject(),
     locks: heldLocks(),
+    vpn: vpnStatus(),
     activeDeploys: activeDeploysByProject(),
     activeActions: activeActionsByProject(),
     terminal: getTerminalSettings(),

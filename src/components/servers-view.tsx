@@ -9,7 +9,7 @@ import { useStatus } from "./status-provider";
 import { Button, Card, Confirm, Dialog, Dot, Empty, ErrorNote, Field, IconButton, Input, Spinner, Textarea, cx } from "./ui";
 
 export function ServersView() {
-  const { notify } = useStatus();
+  const { notify, status } = useStatus();
   const [servers, setServers] = useState<DeployServer[] | null>(null);
   const [health, setHealth] = useState<Record<string, ServerHealth>>({});
   const [checking, setChecking] = useState(false);
@@ -130,7 +130,10 @@ export function ServersView() {
                     </div>
                   </>
                 ) : (
-                  <p className="mt-2 text-[12px] text-danger">{info.error}</p>
+                  <p className="mt-2 text-[12px] text-danger">
+                    {info.error}
+                    {status.vpn.state === "disconnected" && <span className="block text-ink-dim">Not reachable from here — connect the office VPN (dashboard or Settings → VPN).</span>}
+                  </p>
                 )}
 
                 <div className="mt-3 flex items-center gap-1 border-t border-line pt-3">

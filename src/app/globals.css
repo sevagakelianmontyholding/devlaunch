@@ -71,6 +71,13 @@ button {
   font: inherit;
 }
 
+.nav-scroll {
+  scrollbar-width: none;
+}
+.nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 /* Masks the deploy passphrase without a password field, so browsers don't offer to save it. */
 .pin-mask {
   -webkit-text-security: disc;

@@ -43,7 +43,7 @@ export function SettingsView() {
             </div>
             <div className="flex justify-between gap-3">
               <dt className="shrink-0 text-ink-dim">Data folder</dt>
-              <dd className="truncate font-mono text-[11px]" title={status.dataDir}>
+              <dd className="w-0 flex-1 truncate text-right font-mono text-[11px]" title={status.dataDir}>
                 {status.dataDir}
               </dd>
             </div>

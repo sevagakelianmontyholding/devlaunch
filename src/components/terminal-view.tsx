@@ -153,7 +153,7 @@ export function TerminalView({ runId, text, rows = 16, className, interactive = 
     <div
       ref={containerRef}
       onClick={() => interactive && termRef.current?.focus()}
-      className={cx("overflow-hidden rounded-lg border border-line p-2", interactive ? "cursor-text" : "", className)}
+      className={cx("w-full min-w-0 overflow-hidden rounded-lg border border-line p-2", interactive ? "cursor-text" : "", className)}
       style={{ background: "var(--terminal-bg, #07070a)", height: `${Math.round(rows * prefs.size * 1.2) + 16}px` }}
     />
   );

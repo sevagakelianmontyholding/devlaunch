@@ -212,7 +212,7 @@ export function ProjectView({ id }: { id: string }) {
       )}
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <ActionsCard project={project} actions={status.actions[project.id] ?? []} />
           <ReposCard project={project} repos={status.repos[project.id] ?? []} />
           <Deployments projectId={project.id} />
@@ -242,7 +242,7 @@ export function ProjectView({ id }: { id: string }) {
           <LogsPanel projectId={project.id} enabled={Boolean(project.composeFile)} />
         </div>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <NotesCard project={project} />
 
           <Card>
@@ -308,7 +308,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   return (
     <div className="flex items-center justify-between gap-3">
       <dt className="text-ink-dim">{label}</dt>
-      <dd className="truncate text-right">{children}</dd>
+      <dd className="w-0 flex-1 truncate text-right">{children}</dd>
     </div>
   );
 }

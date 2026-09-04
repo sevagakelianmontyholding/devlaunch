@@ -158,7 +158,7 @@ export function DashboardView() {
       </Card>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <Card className="min-w-0 lg:col-span-2">
           <CardTitle icon={<Rocket className="size-4" />}>Recent deployments</CardTitle>
           {!data ? (
             <p className="text-[12px] text-ink-faint">Loading…</p>
@@ -173,7 +173,7 @@ export function DashboardView() {
           )}
         </Card>
 
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
           <Card>
             <CardTitle
               icon={<Server className="size-4" />}

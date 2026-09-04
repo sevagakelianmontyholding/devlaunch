@@ -129,15 +129,15 @@ export function Dot({ tone, pulse }: { tone: "success" | "warn" | "danger" | "mu
 }
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return <section className={cx("rounded-card border border-line bg-panel p-4", className)}>{children}</section>;
+  return <section className={cx("min-w-0 rounded-card border border-line bg-panel p-4", className)}>{children}</section>;
 }
 
 export function CardTitle({ icon, children, aside }: { icon?: ReactNode; children: ReactNode; aside?: ReactNode }) {
   return (
-    <div className="mb-3 flex items-center gap-2">
+    <div className="mb-3 flex flex-wrap items-center gap-2">
       {icon && <span className="text-accent">{icon}</span>}
       <h2 className="text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-dim">{children}</h2>
-      {aside && <div className="ml-auto flex items-center gap-2">{aside}</div>}
+      {aside && <div className="ml-auto flex flex-wrap items-center gap-2">{aside}</div>}
     </div>
   );
 }

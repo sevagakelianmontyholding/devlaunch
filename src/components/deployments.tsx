@@ -164,15 +164,15 @@ export function Deployments({ projectId }: { projectId: string }) {
             const state = runTone(lastRun);
             const runningId = lastRun?.status === "running" ? lastRun.id : null;
             return (
-              <div key={deployment.id} className="rounded-lg border border-line bg-bg p-3">
-                <div className="flex flex-wrap items-center gap-2">
+              <div key={deployment.id} className="rounded-lg border border-line bg-bg p-4">
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
                   <Dot tone={state.tone} pulse={state.tone === "warn"} />
-                  <span className="text-[13px] font-medium">{deployment.name}</span>
+                  <span className="text-[14px] font-semibold">{deployment.name}</span>
                   <span className="rounded-md border border-line px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-ink-dim">{deployment.mode === "image" ? "Image push" : "Commands"}</span>
                   <span className="flex items-center gap-1 text-[11px] text-ink-dim">
                     <Server className="size-3" /> {deployment.serverName}
                   </span>
-                  <div className="ml-auto flex items-center gap-1">
+                  <div className="flex basis-full flex-wrap items-center gap-1.5 sm:ml-auto sm:basis-auto">
                     <IconButton
                       label={`SSH to ${deployment.serverName} in ${deployment.remotePath}`}
                       onClick={async () => {
@@ -212,7 +212,7 @@ export function Deployments({ projectId }: { projectId: string }) {
                     )}
                   </div>
                 </div>
-                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 pl-3.5 text-[11px] text-ink-faint">
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-line pt-3 text-[11px] text-ink-faint">
                   <span className="font-mono">{deployment.remotePath}</span>
                   {deployment.mode === "image" && (
                     <span className="font-mono">

@@ -28,7 +28,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   ];
 
   return (
-    <div className="min-h-screen lg:flex">
+    <div className="min-h-screen overflow-x-hidden lg:flex">
       <aside className="border-b border-line bg-panel px-3 py-3 lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-[224px] lg:flex-col lg:border-b-0 lg:border-r lg:py-4">
         <div className="flex items-center gap-2.5 px-2">
           <span className="grid size-7 place-items-center rounded-lg bg-[#0f2f2b]">
@@ -43,13 +43,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           </span>
         </div>
 
-        <nav className="mt-3 flex gap-1 lg:mt-6 lg:flex-col" aria-label="Main">
+        <nav className="nav-scroll -mx-3 mt-3 flex gap-1 overflow-x-auto px-3 lg:mx-0 lg:mt-6 lg:flex-col lg:overflow-visible lg:px-0" aria-label="Main">
           {nav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cx(
-                "flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[13px] transition",
+                "flex h-9 shrink-0 items-center gap-2.5 rounded-lg px-2.5 text-[13px] transition",
                 item.active ? "bg-panel-2 text-ink" : "text-ink-dim hover:bg-white/[0.04] hover:text-ink",
               )}
             >

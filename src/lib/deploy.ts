@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { access } from "node:fs/promises";
+import { hostname } from "node:os";
 import path from "node:path";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -9,9 +10,9 @@ import { decrypt, encrypt } from "./crypto";
 import { notifyFinished } from "./notify";
 import { formatBytes } from "./format";
 import { getProject } from "./projects";
-import { getServerRow, sshArgs, writeKey, type ServerRow } from "./servers";
+import { getServerRow, parseLock, sshArgs, writeKey, type ServerRow } from "./servers";
 import { killProcessGroup, newControl, run, shQuote, spawnTracked, stream, UserError, waitForExit, type ProcessControl } from "./shell";
-import type { ActiveDeploy, DeployMode, DeployRun, DeployRunSummary, Deployment, DeploymentInput, DeploymentSummary, RunKind, UploadProgress } from "./types";
+import type { ActiveDeploy, DeployLock, DeployMode, DeployRun, DeployRunSummary, Deployment, DeploymentInput, DeploymentSummary, RunKind, UploadProgress } from "./types";
 
 const LOG_LIMIT = 200_000;
 const SAFE_IMAGE = /^[a-z0-9][a-z0-9._/-]*$/;
@@ -488,7 +489,38 @@ export async function gitProblems(projectPath: string): Promise<string | null> {
   }
 }
 
-export async function startRun(deploymentId: string, options: { kind?: RunKind; force?: boolean; username?: string } = {}): Promise<DeployRun> {
+const LOCK_FILE = "$HOME/.devlaunch/deploy.lock";
+
+async function readLock(server: ServerRow): Promise<DeployLock | null> {
+  const { stdout } = await run("ssh", [...sshArgs(server), `cat ${LOCK_FILE} 2>/dev/null || true`], { timeoutMs: 25_000 });
+  return parseLock(stdout);
+}
+
+async function writeLock(server: ServerRow, lock: DeployLock) {
+  const b64 = Buffer.from(JSON.stringify(lock), "utf8").toString("base64");
+  await run("ssh", [...sshArgs(server), `mkdir -p $HOME/.devlaunch && echo ${shQuote(b64)} | base64 -d > ${LOCK_FILE}`], { timeoutMs: 25_000 });
+}
+
+// Only removes the lock if it is still ours: a colleague who deployed anyway may have replaced it.
+async function releaseLock(server: ServerRow, runId: string) {
+  try {
+    await run("ssh", [...sshArgs(server), `grep -q ${shQuote(runId)} ${LOCK_FILE} 2>/dev/null && rm -f ${LOCK_FILE}; true`], { timeoutMs: 25_000 });
+  } catch {
+    // The stale-lock timeout covers this.
+  }
+}
+
+function describeLock(lock: DeployLock, serverName: string) {
+  const minutes = Math.max(1, Math.round((Date.now() - new Date(lock.startedAt).getTime()) / 60_000));
+  const verb = { deploy: "deploying", commands: "running commands for", rollback: "rolling back" }[lock.kind];
+  const who = lock.user ? `${lock.user} (${lock.machine})` : lock.machine;
+  return `${who} is ${verb} ${lock.project} · ${lock.deployment} on ${serverName}, started ${minutes} minute${minutes === 1 ? "" : "s"} ago. Wait for it to finish, or go ahead anyway.`;
+}
+
+export async function startRun(
+  deploymentId: string,
+  options: { kind?: RunKind; force?: boolean; skipGitCheck?: boolean; username?: string } = {},
+): Promise<DeployRun> {
   const kind = options.kind ?? "deploy";
   const config = getRow(deploymentId);
   for (const { run } of activeRuns.values()) {
@@ -499,9 +531,19 @@ export async function startRun(deploymentId: string, options: { kind?: RunKind; 
   const project = getProject(config.project_id);
   if (!project) throw new UserError("Project not found");
   const server = getServerRow(config.server_id);
-  if (kind === "deploy" && config.require_clean_git !== "0" && !options.force) {
+  if (kind === "deploy" && config.require_clean_git !== "0" && !options.force && !options.skipGitCheck) {
     const problems = await gitProblems(path.resolve(project.path));
     if (problems) throw new UserError(`GIT_CHECK:${project.name} has ${problems}. Commit and pull first, or deploy anyway.`);
+  }
+  await writeKey(server.id, server.private_key);
+  if (!options.force) {
+    let lock: DeployLock | null = null;
+    try {
+      lock = await readLock(server);
+    } catch {
+      // Unreachable servers fail properly a moment later, with the log to show for it.
+    }
+    if (lock) throw new UserError(`LOCK:${describeLock(lock, server.name)}`);
   }
 
   const run: DeployRun = {
@@ -520,12 +562,24 @@ export async function startRun(deploymentId: string, options: { kind?: RunKind; 
   const control = newControl();
   activeRuns.set(run.id, { run, control, name: config.name });
 
+  const lock: DeployLock = { user: options.username ?? null, machine: hostname().replace(/\.local$/, ""), project: project.name, deployment: config.name, kind, startedAt: run.startedAt, runId: run.id };
+
   void (async () => {
+    let locked = false;
     try {
+      try {
+        await writeLock(server, lock);
+        locked = true;
+      } catch {
+        run.log += "  (could not write the deploy lock on the server)\n";
+      }
       await execute(run, config, server, path.resolve(project.path), control, kind);
+      if (locked) await releaseLock(server, run.id);
+      locked = false;
       run.status = "success";
       run.log += "\n✔ Deployed\n";
     } catch (error) {
+      if (locked) await releaseLock(server, run.id);
       run.status = control.cancelled ? "cancelled" : "error";
       run.log += control.cancelled ? "\n■ Cancelled\n" : `\n✖ ${error instanceof Error ? error.message : "Failed"}\n`;
     } finally {

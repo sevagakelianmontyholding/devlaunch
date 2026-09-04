@@ -3,7 +3,7 @@ import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { db, keysDir, now } from "./db";
 import { stream, UserError } from "./shell";
-import type { Server, ServerHealth, ServerInput } from "./types";
+import type { DeployLock, Server, ServerHealth, ServerInput } from "./types";
 
 export type ServerRow = {
   id: string;
@@ -141,6 +141,7 @@ export async function serverHealth(): Promise<ServerHealth[]> {
     "echo MEM=$(free -h 2>/dev/null | awk 'NR==2 {print $3\"|\"$2}')",
     "echo UPTIME=$(uptime -p 2>/dev/null || uptime)",
     "docker ps --format 'CONTAINER={{.Names}}|{{.Status}}|{{.Image}}' 2>/dev/null",
+    'echo "LOCK=$(cat $HOME/.devlaunch/deploy.lock 2>/dev/null)"',
   ].join("; ");
   const rows = db().prepare("SELECT * FROM servers ORDER BY name COLLATE NOCASE").all() as ServerRow[];
   return Promise.all(
@@ -151,7 +152,7 @@ export async function serverHealth(): Promise<ServerHealth[]> {
         await writeKey(server.id, server.private_key);
         await stream("ssh", [...sshArgs(server), script], { timeoutMs: 25_000, onOutput: (chunk) => (output += chunk) });
       } catch (error) {
-        return { ...base, reachable: false, error: error instanceof Error ? error.message : "Unreachable", arch: null, dockerVersion: null, disk: null, memory: null, uptime: null, containers: [] };
+        return { ...base, reachable: false, error: error instanceof Error ? error.message : "Unreachable", arch: null, dockerVersion: null, disk: null, memory: null, uptime: null, containers: [], lock: null };
       }
       const get = (key: string) => output.split("\n").find((line) => line.startsWith(`${key}=`))?.slice(key.length + 1).trim() ?? "";
       const [used = "", total = "", percent = ""] = get("DISK").split("|");
@@ -172,7 +173,30 @@ export async function serverHealth(): Promise<ServerHealth[]> {
             const [name = "", status = "", image = ""] = line.slice("CONTAINER=".length).split("|");
             return { name, status, image };
           }),
+        lock: parseLock(get("LOCK")),
       };
     }),
   );
+}
+
+// Locks older than this are treated as leftovers from a crashed run.
+export const LOCK_STALE_MS = 3 * 60 * 60_000;
+
+export function parseLock(text: string): DeployLock | null {
+  try {
+    const lock = JSON.parse(text.trim()) as Partial<DeployLock>;
+    if (!lock || typeof lock.startedAt !== "string" || typeof lock.runId !== "string") return null;
+    if (Date.now() - new Date(lock.startedAt).getTime() > LOCK_STALE_MS) return null;
+    return {
+      user: typeof lock.user === "string" ? lock.user : null,
+      machine: String(lock.machine ?? "another Mac"),
+      project: String(lock.project ?? "a project"),
+      deployment: String(lock.deployment ?? ""),
+      kind: lock.kind === "commands" || lock.kind === "rollback" ? lock.kind : "deploy",
+      startedAt: lock.startedAt,
+      runId: lock.runId,
+    };
+  } catch {
+    return null;
+  }
 }

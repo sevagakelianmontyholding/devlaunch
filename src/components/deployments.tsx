@@ -22,7 +22,7 @@ function runTone(run: DeployRunSummary | null) {
 export function Deployments({ projectId }: { projectId: string }) {
   const { status, notify, refresh } = useStatus();
   const [pinFor, setPinFor] = useState<{ deployment: Deployment; kind: RunKind; force: boolean } | null>(null);
-  const [gitWarning, setGitWarning] = useState<{ deployment: Deployment; message: string; pin?: string } | null>(null);
+  const [gitWarning, setGitWarning] = useState<{ deployment: Deployment; message: string; pin?: string; kind: RunKind; reason: "git" | "lock" } | null>(null);
   const [historyFor, setHistoryFor] = useState<string | null>(null);
   const [history, setHistory] = useState<DeployRunSummary[] | null>(null);
   const [deployments, setDeployments] = useState<Deployment[] | null>(null);
@@ -77,7 +77,12 @@ export function Deployments({ projectId }: { projectId: string }) {
     if (!result.ok) {
       if (result.error.startsWith("GIT_CHECK:")) {
         setPinFor(null);
-        setGitWarning({ deployment, message: result.error.slice("GIT_CHECK:".length), pin });
+        setGitWarning({ deployment, message: result.error.slice("GIT_CHECK:".length), pin, kind, reason: "git" });
+        return null;
+      }
+      if (result.error.startsWith("LOCK:")) {
+        setPinFor(null);
+        setGitWarning({ deployment, message: result.error.slice("LOCK:".length), pin, kind, reason: "lock" });
         return null;
       }
       if (pin === undefined) notify("error", result.error);
@@ -286,14 +291,14 @@ export function Deployments({ projectId }: { projectId: string }) {
       {pinFor && <PinPrompt deployment={pinFor.deployment} kind={pinFor.kind} onClose={() => setPinFor(null)} onSubmit={(pin) => start(pinFor.deployment, pin, pinFor.kind, pinFor.force)} />}
 
       {gitWarning && (
-        <Dialog title="Working tree is not clean" onClose={() => setGitWarning(null)} width="max-w-[460px]">
+        <Dialog title={gitWarning.reason === "lock" ? "Someone is already deploying" : "Working tree is not clean"} onClose={() => setGitWarning(null)} width="max-w-[460px]">
           <p className="text-[13px] leading-5 text-ink-dim">{gitWarning.message}</p>
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setGitWarning(null)}>
               Cancel
             </Button>
-            <Button variant="danger" icon={<Rocket className="size-3.5" />} onClick={() => void start(gitWarning.deployment, gitWarning.pin, "deploy", true)}>
-              Deploy anyway
+            <Button variant="danger" icon={<Rocket className="size-3.5" />} onClick={() => void start(gitWarning.deployment, gitWarning.pin, gitWarning.kind, true)}>
+              {gitWarning.kind === "deploy" ? "Deploy anyway" : "Run anyway"}
             </Button>
           </div>
         </Dialog>

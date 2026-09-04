@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Boxes, Code2, ExternalLink, FlaskConical, FolderOpen, Globe2, Hammer, Link2, Pencil, Power, RotateCw, TerminalSquare, Trash2 } from "lucide-react";
+import { ArrowLeft, Boxes, Code2, ExternalLink, FlaskConical, FolderOpen, Globe2, Hammer, LayoutTemplate, Link2, Pencil, Power, RotateCw, TerminalSquare, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { openProject, openProjectTerminal, removeProject, runCompose } from "@/actions";
 import type { ComposeAction, LocalRun } from "@/lib/types";
@@ -10,6 +10,7 @@ import { LogsPanel } from "./logs-panel";
 import { NotesCard } from "./notes-card";
 import { useNavigate } from "./navigate";
 import { ProjectDialog } from "./project-dialog";
+import { SaveTemplateDialog } from "./templates-card";
 import { useStatus } from "./status-provider";
 import { Button, Card, CardTitle, Confirm, Dot, Empty, IconButton, Monogram, cx } from "./ui";
 
@@ -25,6 +26,7 @@ export function ProjectView({ id }: { id: string }) {
   const project = status.projects.find((item) => item.id === id);
   const runtime = status.runtimes[id];
   const [editing, setEditing] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
   const [confirming, setConfirming] = useState<Exclude<ComposeAction, "start"> | "remove" | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [actionRun, setActionRun] = useState<LocalRun | null>(null);
@@ -126,6 +128,9 @@ export function ProjectView({ id }: { id: string }) {
         <div className="flex items-center gap-1">
           <IconButton label="Edit project" onClick={() => setEditing(true)}>
             <Pencil className="size-4" />
+          </IconButton>
+          <IconButton label="Save as template" onClick={() => setSavingTemplate(true)}>
+            <LayoutTemplate className="size-4" />
           </IconButton>
           <IconButton label="Remove from DevLaunch" onClick={() => setConfirming("remove")} className="hover:text-danger">
             <Trash2 className="size-4" />
@@ -273,6 +278,7 @@ export function ProjectView({ id }: { id: string }) {
         </div>
       </div>
 
+      {savingTemplate && <SaveTemplateDialog projectId={project.id} projectName={project.name} onClose={() => setSavingTemplate(false)} />}
       {editing && <ProjectDialog project={project} onClose={() => setEditing(false)} />}
     </div>
   );

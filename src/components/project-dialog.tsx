@@ -1,11 +1,11 @@
 "use client";
 
 import { FolderOpen, TerminalSquare } from "lucide-react";
-import { useState } from "react";
-import { pickProjectFolder, saveProject } from "@/actions";
-import type { ComposeAction, Project, Section } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { createProjectFromTemplate, getTemplates, pickProjectFolder, saveProject } from "@/actions";
+import type { ComposeAction, Project, ProjectTemplate, Section } from "@/lib/types";
 import { useStatus } from "./status-provider";
-import { Button, Dialog, ErrorNote, Field, Input, Segmented } from "./ui";
+import { Button, Dialog, ErrorNote, Field, Input, Segmented, Select } from "./ui";
 
 function nameFromPath(folder: string) {
   const last = folder.replace(/\/$/, "").split("/").at(-1) ?? "";
@@ -30,6 +30,32 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
   const [browsing, setBrowsing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
+  const [templateId, setTemplateId] = useState("");
+  const template = templates.find((item) => item.id === templateId) ?? null;
+
+  useEffect(() => {
+    if (project) return;
+    let cancelled = false;
+    void getTemplates().then((list) => {
+      if (!cancelled) setTemplates(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [project]);
+
+  const applyTemplate = (id: string) => {
+    setTemplateId(id);
+    const chosen = templates.find((item) => item.id === id);
+    if (!chosen) return;
+    setSection(chosen.project.section);
+    setLocalUrl(chosen.project.localUrl);
+    setTestingUrl(chosen.project.testingUrl);
+    setLiveUrl(chosen.project.liveUrl);
+    setComposeFile(chosen.project.composeFile);
+    setCommands({ ...chosen.project.commands });
+  };
 
   const browse = async () => {
     setBrowsing(true);
@@ -44,16 +70,19 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
     event.preventDefault();
     setSaving(true);
     setError(null);
-    const result = await saveProject(project?.id ?? null, {
-      path,
-      name,
-      section,
-      localUrl,
-      testingUrl,
-      liveUrl,
-      composeFile,
-      commands,
-    });
+    const input = { path, name, section, localUrl, testingUrl, liveUrl, composeFile, commands };
+    if (!project && template) {
+      const result = await createProjectFromTemplate(input, template.id);
+      setSaving(false);
+      if (!result.ok) return setError(result.error);
+      notify("success", `${result.data.project.name} added with ${result.data.created} deployment${result.data.created === 1 ? "" : "s"}`);
+      for (const skipped of result.data.skipped) notify("error", `Deployment skipped — ${skipped}`);
+      await refresh();
+      onSaved?.(result.data.project);
+      onClose();
+      return;
+    }
+    const result = await saveProject(project?.id ?? null, input);
     setSaving(false);
     if (!result.ok) return setError(result.error);
     notify("success", `${result.data.name} ${project ? "updated" : "added"}`);
@@ -65,6 +94,25 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
   return (
     <Dialog title={project ? `Edit ${project.name}` : "Add a project"} description="Any folder on this Mac. Nothing is scanned automatically." onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
+        {!project && templates.length > 0 && (
+          <Field label="Start from a template" hint="optional">
+            <Select value={templateId} onChange={(event) => applyTemplate(event.target.value)}>
+              <option value="">None — blank project</option>
+              {templates.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </Select>
+            {template && (
+              <p className="mt-1.5 text-[11px] text-ink-faint">
+                Fills the fields below
+                {template.deployments.length > 0 && ` and adds ${template.deployments.length} deployment${template.deployments.length === 1 ? "" : "s"}: ${template.deployments.map((item) => `${item.name} → ${item.serverName}`).join(", ")}`}.
+                {" "}<span className="font-mono">{"{slug}"}</span>, <span className="font-mono">{"{folder}"}</span> and <span className="font-mono">{"{name}"}</span> are replaced with this project&apos;s values when you save.
+              </p>
+            )}
+          </Field>
+        )}
         <Field label="Project folder">
           <div className="flex gap-2">
             <Input value={path} onChange={(event) => setPath(event.target.value)} placeholder="/Users/you/projects/my-app" className="font-mono text-[12px]" autoFocus />

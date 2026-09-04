@@ -111,7 +111,7 @@ function slug(name: string) {
   return base || "project";
 }
 
-function uniqueId(name: string) {
+export function uniqueId(name: string) {
   const base = slug(name);
   const exists = db().prepare("SELECT 1 FROM projects WHERE id = ?");
   if (!exists.get(base)) return base;

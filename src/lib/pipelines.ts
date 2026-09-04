@@ -117,7 +117,7 @@ export function startPipeline(id: string, username?: string): PipelineRun {
       const step = run.steps[index]!;
       run.currentStep = index;
       try {
-        const deployRun = await startRun(step.deploymentId, { kind: "deploy", force: true, username: username ?? "pipeline" });
+        const deployRun = await startRun(step.deploymentId, { kind: "deploy", skipGitCheck: true, username: username ?? "pipeline" });
         step.runId = deployRun.id;
         step.status = "running";
         let status: RunStatus = "running";

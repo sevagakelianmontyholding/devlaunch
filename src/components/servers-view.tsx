@@ -1,6 +1,6 @@
 "use client";
 
-import { Cpu, HardDrive, KeyRound, Pencil, Plus, RefreshCw, Server, Trash2, Wifi } from "lucide-react";
+import { Cpu, HardDrive, KeyRound, Lock, Pencil, Plus, RefreshCw, Server, Trash2, Wifi } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { checkServer, getServerHealth, getServers, removeServer, saveServer } from "@/actions";
 import type { Server as DeployServer, ServerHealth } from "@/lib/types";
@@ -89,6 +89,15 @@ export function ServersView() {
                   <div className="mt-3"><Spinner label="Checking over SSH…" /></div>
                 ) : info.reachable ? (
                   <>
+                    {info.lock && (
+                      <div className="mt-3 flex items-center gap-2 rounded-lg border border-warn/25 bg-warn/[0.07] px-3 py-2 text-[11px]">
+                        <Lock className="size-3.5 shrink-0 text-warn" />
+                        <span className="text-warn">Deploy in progress</span>
+                        <span className="truncate text-ink-dim">
+                          {info.lock.project} · {info.lock.deployment}{info.lock.user ? ` by ${info.lock.user}` : ""} from {info.lock.machine}
+                        </span>
+                      </div>
+                    )}
                     <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12px]">
                       <div className="flex items-center gap-1.5 text-ink-dim"><Cpu className="size-3.5" /> {info.arch ?? "?"}</div>
                       <div className="text-ink-dim">Docker {info.dockerVersion ?? "?"}</div>

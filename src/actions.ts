@@ -7,7 +7,9 @@ import { getNotificationSettings, saveNotificationSettings, sendTestNotification
 import { activePipelineRunsById, deletePipeline, listPipelines, savePipeline, startPipeline } from "@/lib/pipelines";
 import { openInEditor, openInTerminal, startAction } from "@/lib/docker";
 import { saveTerminalSettings } from "@/lib/terminal";
-import { createProject, deleteProject, pickFolder, saveNotes, updateProject } from "@/lib/projects";
+import { createProject, deleteProject, pickFolder, saveNotes, uniqueId, updateProject } from "@/lib/projects";
+import { applyTemplateDeployments, createTemplateFromProject, deleteTemplate, fillProjectInput, getTemplate, listTemplates } from "@/lib/templates";
+import path from "node:path";
 import { createServer, deleteServer, listServers, serverHealth, testServer, updateServer } from "@/lib/servers";
 import { UserError } from "@/lib/shell";
 import type {
@@ -24,6 +26,7 @@ import type {
   PipelineInput,
   PipelineRun,
   Project,
+  ProjectTemplate,
   RunKind,
   ServerHealth,
   ProjectInput,
@@ -87,6 +90,32 @@ export async function removeProject(id: string): Promise<ActionResult<Project>> 
 
 export async function pickProjectFolder(): Promise<ActionResult<string>> {
   return attempt(() => pickFolder());
+}
+
+// Templates
+export async function getTemplates(): Promise<ProjectTemplate[]> {
+  await requireUser();
+  return listTemplates();
+}
+
+export async function saveTemplate(projectId: string, name: string): Promise<ActionResult<ProjectTemplate>> {
+  return attempt(() => createTemplateFromProject(projectId, name));
+}
+
+export async function removeTemplate(id: string): Promise<ActionResult<ProjectTemplate>> {
+  return attempt(() => deleteTemplate(id));
+}
+
+export async function createProjectFromTemplate(
+  input: ProjectInput,
+  templateId: string,
+): Promise<ActionResult<{ project: Project; created: number; skipped: string[] }>> {
+  return attempt(async () => {
+    const template = getTemplate(templateId);
+    const vars = { slug: uniqueId(input.name.trim()), folder: path.basename(input.path.trim().replace(/\/$/, "")), name: input.name.trim() };
+    const project = await createProject(fillProjectInput(input, vars));
+    return { project, ...applyTemplateDeployments(project.id, template, { ...vars, slug: project.id }) };
+  });
 }
 
 // Docker / editor

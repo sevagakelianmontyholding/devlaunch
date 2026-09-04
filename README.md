@@ -68,6 +68,14 @@ Buttons on each deployment:
 
 Extras per deployment: an optional **environment file** (stored encrypted on this Mac, written to the server before your commands) and a **clean git tree check** that refuses to deploy uncommitted or un-pulled code unless you choose "Deploy anyway".
 
+## Deploy locks
+
+While a run is in progress, DevLaunch writes `~/.devlaunch/deploy.lock` on the server (in the SSH user's home). If a colleague's DevLaunch starts a run against the same server while that lock exists, they are told who is deploying what, and can wait or go ahead anyway. The lock is removed when the run finishes or is stopped; a lock older than three hours is ignored. The Servers page and dashboard show the lock while it is held.
+
+## Templates
+
+On a project page, **Save as template** keeps its section, URLs, compose file, local commands and deployments (env file contents excluded). When adding the next project, choose the template at the top of the form: the fields are filled in and the deployments are created on the new project. Wherever the original project's id or folder name appeared (image name, server path, URLs), the template uses `{slug}` or `{folder}` so the new project gets its own values; `{name}` is available too. Templates are listed in Settings.
+
 ## Pipelines
 
 **Pipelines** chain deployments in order (for example backend, then frontend) behind one Run button, stopping at the first failure. A pipeline can also run daily at a set time while DevLaunch is running.

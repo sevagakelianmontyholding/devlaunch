@@ -190,7 +190,7 @@ export function DashboardView() {
                         <p className="truncate font-mono text-[11px] text-ink-faint">{server.username}@{server.host}</p>
                       </div>
                       <span className={cx("shrink-0 text-right text-[11px]", health && !info?.reachable ? "text-danger" : "text-ink-faint")}>
-                        {!health ? "checking…" : info?.reachable ? <>{info.containers.length} containers{info.disk && <><br />disk {info.disk.percent}%</>}</> : "unreachable"}
+                        {!health ? "checking…" : info?.reachable ? <>{info.lock ? <span className="text-warn">deploying: {info.lock.user ?? info.lock.machine}</span> : <>{info.containers.length} containers</>}{info.disk && <><br />disk {info.disk.percent}%</>}</> : "unreachable"}
                       </span>
                     </li>
                   );

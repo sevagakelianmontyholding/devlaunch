@@ -4,6 +4,7 @@ import { Zap } from "lucide-react";
 import { PageHeader } from "./app-shell";
 import { AccountCard } from "./account-card";
 import { NotificationsCard } from "./notifications-card";
+import { TemplatesCard } from "./templates-card";
 import { TerminalCard } from "./terminal-card";
 import { ThemeCard } from "./theme";
 import { useStatus } from "./status-provider";
@@ -20,6 +21,7 @@ export function SettingsView() {
         <div className="space-y-4">
           <AccountCard />
           <NotificationsCard />
+          <TemplatesCard />
         </div>
         <div className="space-y-4">
           <TerminalCard />

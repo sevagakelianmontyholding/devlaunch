@@ -92,7 +92,40 @@ export type ServerHealth = {
   memory: { used: string; total: string } | null;
   uptime: string | null;
   containers: Array<{ name: string; status: string; image: string }>;
+  lock: DeployLock | null;
   checkedAt: string;
+};
+
+// Written to ~/.devlaunch/deploy.lock on the server while a run is in progress,
+// so other DevLaunch installs can see someone is mid-deploy.
+export type DeployLock = {
+  user: string | null;
+  machine: string;
+  project: string;
+  deployment: string;
+  kind: RunKind;
+  startedAt: string;
+  runId: string;
+};
+
+export type TemplateProject = {
+  section: Section;
+  localUrl: string;
+  testingUrl: string;
+  liveUrl: string;
+  composeFile: string;
+  commands: Record<ComposeAction, string>;
+};
+
+export type TemplateDeployment = Omit<DeploymentInput, "envContent"> & { serverName: string };
+
+export type ProjectTemplate = {
+  id: string;
+  name: string;
+  sourceProject: string;
+  project: TemplateProject;
+  deployments: TemplateDeployment[];
+  createdAt: string;
 };
 
 export type PipelineStep = { deploymentId: string };

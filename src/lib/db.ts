@@ -131,6 +131,8 @@ export function db() {
   for (const column of ["kind", "username"]) {
     if (!runColumns.includes(column)) connection.exec(`ALTER TABLE deploy_runs ADD COLUMN ${column} TEXT`);
   }
+  const actionColumns = (connection.prepare("PRAGMA table_info(project_actions)").all() as Array<{ name: string }>).map((c) => c.name);
+  if (!actionColumns.includes("in_terminal")) connection.exec("ALTER TABLE project_actions ADD COLUMN in_terminal INTEGER NOT NULL DEFAULT 0");
   globalState.devlaunchDb = connection;
   return connection;
 }

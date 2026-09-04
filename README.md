@@ -41,7 +41,7 @@ DevLaunch finds git repositories in the project folder and its immediate subfold
 
 ## Actions
 
-Each project can have its own buttons: **Actions → Add** on the project page. An action is a name and one or more command lines (run in order, stopping at the first failure), executed either on this Mac in the project folder (or a subfolder) or on a deploy server in the directory you give. Tick *Ask before running* for anything destructive. Actions run with streamed output like start/stop, and appear in ⌘K as "Run migrations · Comium".
+Each project can have its own buttons: **Actions → Add** on the project page. An action is a name and one or more command lines (run in order, stopping at the first failure), executed either on this Mac in the project folder (or a subfolder) or on a deploy server in the directory you give. Tick *Ask before running* for anything destructive. Actions run with streamed output like start/stop, and appear in ⌘K as "Run migrations · Comium". They run inside a pseudo-terminal, so a command that asks a question (`php artisan migrate` without `--force`, for example) shows its prompt in the output and you answer it in the reply box underneath. For anything more interactive (an editor, a menu), tick *Open in a terminal window* and the action runs in your terminal app instead.
 
 ## Deploy servers
 

@@ -3,7 +3,8 @@ import path from "node:path";
 import { db, now } from "./db";
 import { launchRun } from "./docker";
 import { getProject } from "./projects";
-import { getServerRow, sshArgs, writeKey } from "./servers";
+import { getServerRow, keyPath, writeKey } from "./servers";
+import { openScriptInTerminal } from "./terminal";
 import { shQuote, UserError } from "./shell";
 import type { LocalRun, ProjectAction, ProjectActionInput } from "./types";
 
@@ -16,6 +17,7 @@ type Row = {
   server_name: string | null;
   working_dir: string | null;
   confirm: number;
+  in_terminal: number;
   position: number;
   created_at: string;
   updated_at: string;
@@ -36,6 +38,7 @@ function fromRow(row: Row): ProjectAction {
     serverName: row.server_name,
     workingDir: row.working_dir ?? "",
     confirm: row.confirm === 1,
+    inTerminal: row.in_terminal === 1,
     position: row.position,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -81,7 +84,7 @@ function validate(input: ProjectActionInput) {
   } else if (workingDir && (!/^[A-Za-z0-9._ /-]+$/.test(workingDir) || workingDir.includes(".."))) {
     throw new UserError("The working directory must be a path relative to the project folder");
   }
-  return { name, command, serverId, workingDir, confirm: Boolean(input.confirm) };
+  return { name, command, serverId, workingDir, confirm: Boolean(input.confirm), inTerminal: Boolean(input.inTerminal) };
 }
 
 export function saveProjectAction(projectId: string, id: string | null, input: ProjectActionInput): ProjectAction {
@@ -91,15 +94,15 @@ export function saveProjectAction(projectId: string, id: string | null, input: P
   if (id) {
     getProjectAction(id);
     db()
-      .prepare("UPDATE project_actions SET name = ?, command = ?, server_id = ?, working_dir = ?, confirm = ?, updated_at = ? WHERE id = ? AND project_id = ?")
-      .run(action.name, action.command, action.serverId, action.workingDir, action.confirm ? 1 : 0, timestamp, id, projectId);
+      .prepare("UPDATE project_actions SET name = ?, command = ?, server_id = ?, working_dir = ?, confirm = ?, in_terminal = ?, updated_at = ? WHERE id = ? AND project_id = ?")
+      .run(action.name, action.command, action.serverId, action.workingDir, action.confirm ? 1 : 0, action.inTerminal ? 1 : 0, timestamp, id, projectId);
     return getProjectAction(id);
   }
   const position = ((db().prepare("SELECT MAX(position) AS max FROM project_actions WHERE project_id = ?").get(projectId) as { max: number | null }).max ?? -1) + 1;
   const newId = randomUUID();
   db()
-    .prepare("INSERT INTO project_actions (id, project_id, name, command, server_id, working_dir, confirm, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-    .run(newId, projectId, action.name, action.command, action.serverId, action.workingDir, action.confirm ? 1 : 0, position, timestamp, timestamp);
+    .prepare("INSERT INTO project_actions (id, project_id, name, command, server_id, working_dir, confirm, in_terminal, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .run(newId, projectId, action.name, action.command, action.serverId, action.workingDir, action.confirm ? 1 : 0, action.inTerminal ? 1 : 0, position, timestamp, timestamp);
   return getProjectAction(newId);
 }
 
@@ -112,19 +115,34 @@ export function deleteProjectAction(id: string) {
 // Local actions run in the project folder through the login shell; server
 // actions run the same lines over SSH in the given directory. Both stream
 // their output as a tracked local run, like start/stop and git.
-export async function runProjectAction(id: string): Promise<LocalRun> {
+// Actions run inside a pseudo-terminal so tools that ask questions (php artisan
+// migrate, npm init, …) actually ask; answers come from the reply box in the
+// UI. With "open in a terminal" the action runs in the user's terminal app
+// instead and nothing is tracked here (null is returned).
+export async function runProjectAction(id: string): Promise<LocalRun | null> {
   const action = getProjectAction(id);
   const project = getProject(action.projectId);
   if (!project) throw new UserError("Project not found");
   const lines = commandLines(action.command);
+  const intro = lines.map((line) => `  $ ${line}`).join("\n");
   if (action.serverId) {
     const server = getServerRow(action.serverId);
     await writeKey(server.id, server.private_key);
     const remote = `cd ${shQuote(action.workingDir)} && ${lines.join(" && ")}`;
-    const command = ["ssh", ...sshArgs(server).map(shQuote), shQuote(remote)].join(" ");
-    return launchRun(project, "custom", command, path.resolve(project.path), 20 * 60_000, `${action.name} → ${server.name} (${server.username}@${server.host}) in ${action.workingDir}\n${lines.map((line) => `  $ ${line}`).join("\n")}\n\n`, action.name);
+    const ssh = `ssh -i ${shQuote(keyPath(server.id))} -p ${server.port} -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 -tt ${shQuote(`${server.username}@${server.host}`)}`;
+    if (action.inTerminal) {
+      const script = [`echo "${action.name.replaceAll('"', "")} → ${server.name.replaceAll('"', "")} in ${action.workingDir}"`, `exec ${ssh.replace(" -tt ", " -t ")} ${shQuote(`${remote}; echo; echo "— finished (exit $?) —"; exec "$SHELL" -l`)}`].join("\n");
+      await openScriptInTerminal(`action-${action.name}`, script);
+      return null;
+    }
+    return launchRun(project, "custom", `${ssh} ${shQuote(remote)}`, path.resolve(project.path), 20 * 60_000, `${action.name} → ${server.name} (${server.username}@${server.host}) in ${action.workingDir}\n${intro}\n\n`, action.name, { pty: true });
   }
   const cwd = path.resolve(project.path, action.workingDir || ".");
   if (!cwd.startsWith(path.resolve(project.path))) throw new UserError("The working directory must stay inside the project folder");
-  return launchRun(project, "custom", lines.join(" && "), cwd, 20 * 60_000, `${action.name} on this Mac in ${cwd}\n${lines.map((line) => `  $ ${line}`).join("\n")}\n\n`, action.name);
+  if (action.inTerminal) {
+    const script = [`cd ${shQuote(cwd)}`, `echo "${action.name.replaceAll('"', "")} in ${cwd}"`, `${lines.join(" && ")}; echo; echo "— finished (exit $?) —"; exec "$SHELL" -l`].join("\n");
+    await openScriptInTerminal(`action-${action.name}`, script);
+    return null;
+  }
+  return launchRun(project, "custom", lines.join(" && "), cwd, 20 * 60_000, `${action.name} on this Mac in ${cwd}\n${intro}\n\n`, action.name, { pty: true });
 }

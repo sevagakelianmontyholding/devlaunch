@@ -9,6 +9,7 @@ import { openInEditor, openInTerminal, startAction } from "@/lib/docker";
 import { startGitRun } from "@/lib/git";
 import { checkSite } from "@/lib/uptime";
 import { deleteProjectAction, runProjectAction as startProjectAction, saveProjectAction } from "@/lib/project-actions";
+import { stopLocalRun } from "@/lib/docker";
 import { getProject } from "@/lib/projects";
 import { saveTerminalSettings } from "@/lib/terminal";
 import { createProject, deleteProject, pickFolder, saveNotes, uniqueId, updateProject } from "@/lib/projects";
@@ -143,8 +144,15 @@ export async function removeAction(id: string): Promise<ActionResult<ProjectActi
   return attempt(() => deleteProjectAction(id));
 }
 
-export async function runAction(id: string): Promise<ActionResult<LocalRun>> {
+export async function runAction(id: string): Promise<ActionResult<LocalRun | null>> {
   return attempt(() => startProjectAction(id));
+}
+
+export async function stopAction(runId: string): Promise<ActionResult> {
+  return attempt(() => {
+    stopLocalRun(runId);
+    return undefined;
+  });
 }
 
 export async function checkLiveSite(projectId: string): Promise<ActionResult<UptimeStatus>> {

@@ -344,6 +344,7 @@ export type ProjectAction = {
   serverName: string | null;
   workingDir: string;
   confirm: boolean;
+  inTerminal: boolean;
   position: number;
   createdAt: string;
   updatedAt: string;
@@ -355,6 +356,7 @@ export type ProjectActionInput = {
   serverId: string | null;
   workingDir: string;
   confirm: boolean;
+  inTerminal: boolean;
 };
 
 export type ServerLock = { serverId: string; serverName: string; lock: DeployLock };

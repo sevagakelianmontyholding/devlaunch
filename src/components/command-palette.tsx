@@ -67,7 +67,7 @@ export function CommandPalette() {
           run: async () => {
             if (action.confirm) return navigate(`/projects/${project.id}`);
             const result = await runAction(action.id);
-            notify(result.ok ? "success" : "error", result.ok ? `Running ${action.name}` : result.error);
+            notify(result.ok ? "success" : "error", result.ok ? (result.data ? `Running ${action.name}` : `${action.name} opened in your terminal`) : result.error);
             void refresh();
           },
         });

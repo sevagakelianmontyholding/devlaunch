@@ -1,8 +1,8 @@
 "use client";
 
-import { Pencil, Play, Plus, Server, Trash2, Zap } from "lucide-react";
+import { CornerDownLeft, Pencil, Play, Plus, Server, Square, TerminalSquare, Trash2, Zap } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { getServers, removeAction, runAction, saveAction } from "@/actions";
+import { getServers, removeAction, runAction, saveAction, stopAction } from "@/actions";
 import type { LocalRun, Project, ProjectAction, Server as DeployServer } from "@/lib/types";
 import { useStatus } from "./status-provider";
 import { Button, Card, CardTitle, Confirm, Dialog, Dot, ErrorNote, Field, IconButton, Input, Select, Textarea, cx } from "./ui";
@@ -15,6 +15,7 @@ export function ActionsCard({ project, actions }: { project: Project; actions: P
   const [confirming, setConfirming] = useState<ProjectAction | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [reply, setReply] = useState("");
   const logRef = useRef<HTMLPreElement | null>(null);
   const notifiedRef = useRef<string | null>(null);
   const otherRunning = Boolean(status.activeActions[project.id]) && status.activeActions[project.id]?.runId !== run?.id;
@@ -48,8 +49,24 @@ export function ActionsCard({ project, actions }: { project: Project; actions: P
     const result = await runAction(action.id);
     setBusy(null);
     if (!result.ok) return notify("error", result.error);
+    if (!result.data) return notify("success", `${action.name} opened in your terminal`);
     setRun(result.data);
     void refresh();
+  };
+
+  const sendReply = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!run) return;
+    const text = reply;
+    setReply("");
+    const response = await fetch(`/api/local-runs/${run.id}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text }) });
+    if (!response.ok) notify("error", ((await response.json()) as { error?: string }).error ?? "Could not send the reply");
+  };
+
+  const stop = async () => {
+    if (!run) return;
+    const result = await stopAction(run.id);
+    if (!result.ok) notify("error", result.error);
   };
 
   const remove = async (id: string) => {
@@ -102,6 +119,7 @@ export function ActionsCard({ project, actions }: { project: Project; actions: P
                 <Play className={cx("size-3.5 shrink-0 text-accent", busy === action.id && "animate-pulse")} />
                 <span className="truncate font-medium">{action.name}</span>
                 <span className="ml-auto flex shrink-0 items-center gap-1 text-[11px] text-ink-faint">
+                  {action.inTerminal && <TerminalSquare className="size-3" />}
                   {action.serverName ? (
                     <>
                       <Server className="size-3" /> {action.serverName}
@@ -157,7 +175,11 @@ export function ActionsCard({ project, actions }: { project: Project; actions: P
             <span className="font-medium">
               {run.label ?? "Action"} {run.status === "running" ? "running…" : run.status === "success" ? "finished" : "failed"}
             </span>
-            {run.status !== "running" && (
+            {run.status === "running" ? (
+              <button type="button" onClick={() => void stop()} className="ml-auto flex items-center gap-1 text-[11px] text-ink-dim hover:text-danger">
+                <Square className="size-2.5" fill="currentColor" /> Stop
+              </button>
+            ) : (
               <button type="button" onClick={() => setRun(null)} className="ml-auto text-[11px] text-ink-dim hover:text-ink">
                 Dismiss
               </button>
@@ -166,6 +188,14 @@ export function ActionsCard({ project, actions }: { project: Project; actions: P
           <pre ref={logRef} className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-black/40 p-3 font-mono text-[11px] leading-4 text-ink-dim">
             {run.log}
           </pre>
+          {run.status === "running" && (
+            <form onSubmit={sendReply} className="mt-2 flex items-center gap-2">
+              <Input value={reply} onChange={(event) => setReply(event.target.value)} placeholder="If the command asks something, type the answer here and press Enter (e.g. yes)" className="font-mono text-[12px]" autoComplete="off" />
+              <Button type="submit" size="sm" icon={<CornerDownLeft className="size-3.5" />}>
+                Send
+              </Button>
+            </form>
+          )}
         </div>
       )}
 
@@ -182,6 +212,7 @@ function ActionDialog({ projectId, action, onClose }: { projectId: string; actio
   const [workingDir, setWorkingDir] = useState(action?.workingDir ?? "");
   const [command, setCommand] = useState(action?.command ?? "");
   const [confirm, setConfirm] = useState(action?.confirm ?? false);
+  const [inTerminal, setInTerminal] = useState(action?.inTerminal ?? false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -199,7 +230,7 @@ function ActionDialog({ projectId, action, onClose }: { projectId: string; actio
     event.preventDefault();
     setSaving(true);
     setError(null);
-    const result = await saveAction(projectId, action?.id ?? null, { name, command, serverId: where || null, workingDir, confirm });
+    const result = await saveAction(projectId, action?.id ?? null, { name, command, serverId: where || null, workingDir, confirm, inTerminal });
     setSaving(false);
     if (!result.ok) return setError(result.error);
     notify("success", `${result.data.name} ${action ? "updated" : "added"}`);
@@ -237,6 +268,13 @@ function ActionDialog({ projectId, action, onClose }: { projectId: string; actio
           <span>
             <span className="font-medium">Ask before running</span>
             <span className="block text-[11px] text-ink-dim">Shows the commands and waits for a confirmation. Use it for anything destructive.</span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-[12px]">
+          <input type="checkbox" checked={inTerminal} onChange={(event) => setInTerminal(event.target.checked)} className="mt-0.5 accent-[#2dd4bf]" />
+          <span>
+            <span className="font-medium">Open in a terminal window</span>
+            <span className="block text-[11px] text-ink-dim">Runs in your terminal app instead of here. Simple questions (yes/no) can be answered in DevLaunch either way; use this for editors, menus, or anything you want to keep typing into.</span>
           </span>
         </label>
         {error && <ErrorNote>{error}</ErrorNote>}

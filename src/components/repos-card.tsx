@@ -55,7 +55,6 @@ export function ReposCard({ project, repos }: { project: Project; repos: RepoSta
   const running = run?.status === "running" || otherRunning;
   const changed = repos.reduce((total, repo) => total + repo.changed, 0);
   const ahead = repos.reduce((total, repo) => total + repo.ahead, 0);
-  const behind = repos.reduce((total, repo) => total + repo.behind, 0);
 
   return (
     <Card>

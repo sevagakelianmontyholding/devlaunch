@@ -5,6 +5,7 @@ import { decrypt, encrypt } from "./crypto";
 import { dataDir } from "./db";
 import { db } from "./db";
 import { getSetting, setSetting } from "./settings";
+import { execFileSync } from "node:child_process";
 import { run, UserError } from "./shell";
 import type { VpnSettings, VpnStatus } from "./types";
 
@@ -123,14 +124,43 @@ export function forgetVpn() {
   rmSync(sourcePath, { force: true });
 }
 
-function pidAlive() {
+// OpenVPN runs as root, so signalling it from here is refused (EPERM) even
+// though it is alive; only ESRCH means it is gone. When the pid file is
+// missing (a dying sibling removed it), find the daemon by its command line
+// and restore the file so the sudoers-limited pkill can still stop it.
+function runningPids() {
   try {
-    const pid = Number(readFileSync(pidPath, "utf8").trim());
-    if (!pid) return null;
+    return execFileSync("/usr/bin/pgrep", ["-f", `openvpn --config ${profilePath} `], { encoding: "utf8" })
+      .split("\n")
+      .map((line) => Number(line.trim()))
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function pidAlive() {
+  let pid = 0;
+  try {
+    pid = Number(readFileSync(pidPath, "utf8").trim());
+  } catch {
+    pid = 0;
+  }
+  if (!pid) {
+    const found = runningPids()[0];
+    if (!found) return null;
+    try {
+      writeFileSync(pidPath, `${found}\n`, { mode: 0o644 });
+    } catch {
+      // The daemon will still show as running; stopping it needs the file though.
+    }
+    return found;
+  }
+  try {
     process.kill(pid, 0);
     return pid;
-  } catch {
-    return null;
+  } catch (error) {
+    return (error as { code?: string }).code === "EPERM" ? pid : null;
   }
 }
 
@@ -190,7 +220,7 @@ export async function connectVpn(code: string): Promise<VpnStatus> {
   if (!username || !encrypted) throw new UserError("Add the VPN username and password in Settings first");
   const otp = code.trim();
   if (!/^\d{4,10}$/.test(otp)) throw new UserError("Enter the verification code from your authenticator");
-  if (pidAlive()) throw new UserError("The VPN is already running");
+  if (pidAlive() || runningPids().length > 0) throw new UserError("The VPN is already running");
   if (!(await sudoAllowed(binary))) throw new UserError("SETUP:Run the one-time setup command from Settings → VPN first");
 
   prepareFiles();

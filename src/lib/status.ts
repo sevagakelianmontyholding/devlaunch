@@ -5,6 +5,7 @@ import { activeDeploysByProject, deploymentSummariesByProject } from "./deploy";
 import { activeActionsByProject } from "./docker";
 import { repoStatuses } from "./git";
 import { actionsByProject } from "./project-actions";
+import { ensureLockMonitor, heldLocks } from "./locks";
 import { activePipelineRunsById, ensureScheduler } from "./pipelines";
 import { getTerminalSettings } from "./terminal";
 import { ensureUptimeMonitor, uptimeByProject } from "./uptime";
@@ -70,6 +71,7 @@ async function runtimeFor(project: Project, groups: Map<string, DockerGroup>): P
 export async function getStatus(user: SessionUser): Promise<Status> {
   ensureScheduler();
   ensureUptimeMonitor();
+  ensureLockMonitor();
   const projects = listProjects();
   const docker = await dockerGroups();
   const [runtimes, repos] = await Promise.all([
@@ -85,6 +87,7 @@ export async function getStatus(user: SessionUser): Promise<Status> {
     repos: Object.fromEntries(repos),
     uptime: uptimeByProject(),
     actions: actionsByProject(),
+    locks: heldLocks(),
     activeDeploys: activeDeploysByProject(),
     activeActions: activeActionsByProject(),
     terminal: getTerminalSettings(),

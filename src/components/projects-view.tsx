@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useNavigate } from "./navigate";
-import { Code2, ExternalLink, GitBranch, FlaskConical, FolderKanban, Globe2, Plus, Power, Rocket, Search, TerminalSquare } from "lucide-react";
+import { Code2, ExternalLink, GitBranch, Lock, FlaskConical, FolderKanban, Globe2, Plus, Power, Rocket, Search, TerminalSquare } from "lucide-react";
 import { formatBytes } from "@/lib/format";
 import { actionRunning } from "@/lib/labels";
 import { useMemo, useState } from "react";
 import { openProject, openProjectTerminal, runCompose } from "@/actions";
-import type { ActiveAction, ActiveDeploy, Project, ProjectRuntime, RepoStatus, Section, UptimeStatus } from "@/lib/types";
+import type { ActiveAction, ActiveDeploy, Project, ProjectRuntime, RepoStatus, Section, ServerLock, UptimeStatus } from "@/lib/types";
 import { PageHeader } from "./app-shell";
 import { ProjectDialog } from "./project-dialog";
 import { useStatus } from "./status-provider";
@@ -121,6 +121,7 @@ export function ProjectsView() {
                             runtime={status.runtimes[project.id]}
                             repos={status.repos[project.id] ?? []}
                             uptime={status.uptime[project.id]}
+                            locks={foreignLocks(status.locks, status.deployments[project.id] ?? [], status.activeDeploys)}
                             deploy={status.activeDeploys[project.id]}
                             action={status.activeActions[project.id]}
                             busy={busyId === project.id}
@@ -150,6 +151,7 @@ function ProjectCard({
   runtime,
   repos,
   uptime,
+  locks,
   deploy,
   action,
   busy,
@@ -162,6 +164,7 @@ function ProjectCard({
   runtime: ProjectRuntime | undefined;
   repos: RepoStatus[];
   uptime: UptimeStatus | undefined;
+  locks: ServerLock[];
   deploy: ActiveDeploy | undefined;
   action: ActiveAction | undefined;
   busy: boolean;
@@ -216,6 +219,9 @@ function ProjectCard({
 
       {deploy && <DeployStrip deploy={deploy} />}
       {action && !deploy && <ActionStrip action={action} />}
+      {locks.map((held) => (
+        <LockStrip key={held.serverId} held={held} />
+      ))}
 
       <div className="mt-auto flex items-center justify-end gap-2 pt-4">
         <div className="flex items-center gap-0.5">
@@ -323,5 +329,28 @@ export function LiveStatus({ uptime, long }: { uptime: UptimeStatus; long?: bool
       · <Dot tone={uptime.up ? "success" : "danger"} pulse={!uptime.up} />
       {uptime.up ? (long ? `Live up · ${uptime.latencyMs} ms` : "Live up") : `Live down${since === "just now" ? "" : ` · ${since}`}`}
     </span>
+  );
+}
+
+// Locks held on servers this project deploys to, by someone other than this
+// DevLaunch's own active run (that one is already shown as a deploy strip).
+export function foreignLocks(locks: Record<string, ServerLock>, deployments: Array<{ serverId: string }>, activeDeploys: Record<string, ActiveDeploy>) {
+  const own = new Set(Object.values(activeDeploys).map((deploy) => deploy.runId));
+  const serverIds = new Set(deployments.map((deployment) => deployment.serverId));
+  return Object.values(locks).filter((held) => serverIds.has(held.serverId) && !own.has(held.lock.runId));
+}
+
+export function LockStrip({ held }: { held: ServerLock }) {
+  const { lock } = held;
+  const verb = { deploy: "deploying", commands: "running commands for", rollback: "rolling back" }[lock.kind];
+  return (
+    <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-warn/25 bg-warn/[0.07] px-3 py-2 text-[11px]">
+      <Lock className="size-3 shrink-0 text-warn" />
+      <span className="font-medium text-warn">{held.serverName} busy</span>
+      <span className="truncate text-ink-dim" title={`${lock.user ?? lock.machine} is ${verb} ${lock.project} · ${lock.deployment} from ${lock.machine}`}>
+        · {lock.user ?? lock.machine} {verb} {lock.project} · {lock.deployment}
+      </span>
+      <span className="ml-auto shrink-0 text-ink-faint">{timeAgo(lock.startedAt).replace(" ago", "")}</span>
+    </div>
   );
 }

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { deploy, getDeployRuns, getDeployments, getServers, openServerTerminal, removeDeployment, saveDeployment, stopDeploy } from "@/actions";
 import type { DeployMode, DeployRun, DeployRunSummary, Deployment, RunKind, Server as DeployServer } from "@/lib/types";
 import { useStatus } from "./status-provider";
+import { LockStrip, foreignLocks } from "./projects-view";
 import { Button, Card, CardTitle, Confirm, Dialog, Dot, ErrorNote, Field, IconButton, Input, Select, Spinner, Textarea, cx } from "./ui";
 import { formatBytes } from "@/lib/format";
 
@@ -156,6 +157,11 @@ export function Deployments({ projectId }: { projectId: string }) {
         </p>
       ) : (
         <div className="space-y-2">
+          {foreignLocks(status.locks, deployments, status.activeDeploys).map((held) => (
+            <div key={held.serverId} className="[&>div]:mt-0">
+              <LockStrip held={held} />
+            </div>
+          ))}
           {deployments.map((deployment) => {
             const live = watched?.deploymentId === deployment.id ? watched : null;
             const lastRun: DeployRunSummary | null = live ?? deployment.lastRun;

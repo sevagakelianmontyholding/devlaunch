@@ -70,6 +70,7 @@ export type ActiveAction = {
 export type DeploymentSummary = {
   id: string;
   name: string;
+  serverId: string;
   serverName: string;
   mode: DeployMode;
 };
@@ -179,6 +180,7 @@ export type Status = {
   repos: Record<string, RepoStatus[]>;
   uptime: Record<string, UptimeStatus>;
   actions: Record<string, ProjectAction[]>;
+  locks: Record<string, ServerLock>;
   activeDeploys: Record<string, ActiveDeploy>;
   activeActions: Record<string, ActiveAction>;
   terminal: TerminalSettings;
@@ -354,3 +356,5 @@ export type ProjectActionInput = {
   workingDir: string;
   confirm: boolean;
 };
+
+export type ServerLock = { serverId: string; serverName: string; lock: DeployLock };

@@ -9,6 +9,7 @@ import { actionRunning } from "@/lib/labels";
 import type { ActiveAction, ActiveDeploy, DashboardData, PipelineRun, RecentRun, ServerHealth, UptimeStatus } from "@/lib/types";
 import { PageHeader } from "./app-shell";
 import { ProjectDialog } from "./project-dialog";
+import { LockStrip } from "./projects-view";
 import { useStatus } from "./status-provider";
 import { Button, Card, CardTitle, Dot, IconButton, Monogram, cx, timeAgo } from "./ui";
 
@@ -78,6 +79,11 @@ export function DashboardView() {
       const project = projects.find((item) => item.id === projectId);
       items.push({ key: `action:${action.runId}`, node: <ActiveActionRow projectId={projectId} projectName={project?.name ?? projectId} action={action} /> });
     }
+    const own = new Set(Object.values(status.activeDeploys).map((deploy) => deploy.runId));
+    for (const held of Object.values(status.locks)) {
+      if (own.has(held.lock.runId)) continue;
+      items.push({ key: `lock:${held.serverId}`, node: <div className="[&>div]:mt-0"><LockStrip held={held} /></div> });
+    }
     for (const [projectId, uptime] of Object.entries(status.uptime)) {
       if (uptime.up !== false) continue;
       const project = projects.find((item) => item.id === projectId);
@@ -89,7 +95,7 @@ export function DashboardView() {
       items.push({ key: `pipeline:${run.id}`, node: <ActivePipelineRow name={pipeline?.name ?? "Pipeline"} run={run} /> });
     }
     return items;
-  }, [status.activeDeploys, status.activeActions, status.activePipelines, status.uptime, projects, data]);
+  }, [status.activeDeploys, status.activeActions, status.activePipelines, status.uptime, status.locks, projects, data]);
 
   const toggle = async (projectId: string, isRunning: boolean) => {
     setBusyId(projectId);
@@ -145,7 +151,7 @@ export function DashboardView() {
           Happening now
         </CardTitle>
         {now.length === 0 ? (
-          <p className="text-[12px] text-ink-faint">All quiet. Nothing is deploying or starting, and every live site is answering.</p>
+          <p className="text-[12px] text-ink-faint">All quiet. Nothing is deploying here or from another Mac, and every live site is answering.</p>
         ) : (
           <div className="space-y-2">{now.map((item) => <div key={item.key}>{item.node}</div>)}</div>
         )}

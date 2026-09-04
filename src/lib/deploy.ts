@@ -10,6 +10,7 @@ import { decrypt, encrypt } from "./crypto";
 import { notifyFinished } from "./notify";
 import { formatBytes } from "./format";
 import { gitProblems } from "./git";
+import { rememberLock } from "./locks";
 import { getProject } from "./projects";
 import { getServerRow, parseLock, sshArgs, writeKey, type ServerRow } from "./servers";
 import { killProcessGroup, newControl, run, shQuote, spawnTracked, stream, UserError, waitForExit, type ProcessControl } from "./shell";
@@ -130,7 +131,7 @@ export function deploymentSummariesByProject() {
     .all() as Row[];
   const result: Record<string, DeploymentSummary[]> = {};
   for (const row of rows) {
-    (result[row.project_id] ??= []).push({ id: row.id, name: row.name, serverName: row.server_name, mode: row.mode });
+    (result[row.project_id] ??= []).push({ id: row.id, name: row.name, serverId: row.server_id, serverName: row.server_name, mode: row.mode });
   }
   return result;
 }
@@ -545,12 +546,14 @@ async function readLock(server: ServerRow): Promise<DeployLock | null> {
 async function writeLock(server: ServerRow, lock: DeployLock) {
   const b64 = Buffer.from(JSON.stringify(lock), "utf8").toString("base64");
   await run("ssh", [...sshArgs(server), `mkdir -p $HOME/.devlaunch && echo ${shQuote(b64)} | base64 -d > ${LOCK_FILE}`], { timeoutMs: 25_000 });
+  rememberLock(server.id, lock);
 }
 
 // Only removes the lock if it is still ours: a colleague who deployed anyway may have replaced it.
 async function releaseLock(server: ServerRow, runId: string) {
   try {
     await run("ssh", [...sshArgs(server), `grep -q ${shQuote(runId)} ${LOCK_FILE} 2>/dev/null && rm -f ${LOCK_FILE}; true`], { timeoutMs: 25_000 });
+    rememberLock(server.id, null);
   } catch {
     // The stale-lock timeout covers this.
   }
@@ -589,6 +592,7 @@ export async function startRun(
     } catch {
       // Unreachable servers fail properly a moment later, with the log to show for it.
     }
+    rememberLock(server.id, lock);
     if (lock) throw new UserError(`LOCK:${describeLock(lock, server.name)}`);
   }
 

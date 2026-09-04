@@ -78,7 +78,7 @@ Extras per deployment: an optional **health check URL** (polled from this Mac af
 
 ## Deploy locks
 
-While a run is in progress, DevLaunch writes `~/.devlaunch/deploy.lock` on the server (in the SSH user's home). If a colleague's DevLaunch starts a run against the same server while that lock exists, they are told who is deploying what, and can wait or go ahead anyway. The lock is removed when the run finishes or is stopped; a lock older than three hours is ignored. The Servers page and dashboard show the lock while it is held.
+While a run is in progress, DevLaunch writes `~/.devlaunch/deploy.lock` on the server (in the SSH user's home). If a colleague's DevLaunch starts a run against the same server while that lock exists, they are told who is deploying what, and can wait or go ahead anyway. The lock is removed when the run finishes or is stopped; a lock older than three hours is ignored. While a lock is held by someone else, it shows on the project card, on the project page above the deployments, on the dashboard under Happening now, and on the Servers page (checked every minute).
 
 ## Templates
 

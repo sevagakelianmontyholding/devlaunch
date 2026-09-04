@@ -106,7 +106,7 @@ export function ActionsCard({ project, actions }: { project: Project; actions: P
           .
         </p>
       ) : (
-        <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="space-y-1.5">
           {actions.map((action) => (
             <div key={action.id} className="flex items-center gap-1.5">
               <button

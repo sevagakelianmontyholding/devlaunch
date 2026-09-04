@@ -7,6 +7,8 @@ import { getNotificationSettings, saveNotificationSettings, sendTestNotification
 import { activePipelineRunsById, deletePipeline, listPipelines, savePipeline, startPipeline } from "@/lib/pipelines";
 import { openInEditor, openInTerminal, startAction } from "@/lib/docker";
 import { startGitRun } from "@/lib/git";
+import { checkSite } from "@/lib/uptime";
+import { getProject } from "@/lib/projects";
 import { saveTerminalSettings } from "@/lib/terminal";
 import { createProject, deleteProject, pickFolder, saveNotes, uniqueId, updateProject } from "@/lib/projects";
 import { applyTemplateDeployments, createTemplateFromProject, deleteTemplate, fillProjectInput, getTemplate, listTemplates } from "@/lib/templates";
@@ -37,6 +39,7 @@ import type {
   SessionUser,
   TerminalApp,
   TerminalSettings,
+  UptimeStatus,
 } from "@/lib/types";
 
 async function attempt<T>(work: (user: SessionUser) => Promise<T> | T, options: { public?: boolean } = {}): Promise<ActionResult<T>> {
@@ -127,6 +130,14 @@ export async function runCompose(id: string, action: ComposeAction): Promise<Act
 
 export async function runGit(projectId: string, repoPath: string | null, action: GitAction, message?: string): Promise<ActionResult<LocalRun>> {
   return attempt(() => startGitRun(projectId, repoPath, action, message));
+}
+
+export async function checkLiveSite(projectId: string): Promise<ActionResult<UptimeStatus>> {
+  return attempt(() => {
+    const project = getProject(projectId);
+    if (!project?.liveUrl) throw new UserError("This project has no live URL");
+    return checkSite(project.id, project.name, project.liveUrl);
+  });
 }
 
 export async function openProject(id: string): Promise<ActionResult> {

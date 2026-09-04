@@ -6,6 +6,7 @@ import { activeActionsByProject } from "./docker";
 import { repoStatuses } from "./git";
 import { activePipelineRunsById, ensureScheduler } from "./pipelines";
 import { getTerminalSettings } from "./terminal";
+import { ensureUptimeMonitor, uptimeByProject } from "./uptime";
 import { listProjects } from "./projects";
 import { run } from "./shell";
 import type { Container, Project, ProjectRuntime, SessionUser, Status } from "./types";
@@ -67,6 +68,7 @@ async function runtimeFor(project: Project, groups: Map<string, DockerGroup>): P
 
 export async function getStatus(user: SessionUser): Promise<Status> {
   ensureScheduler();
+  ensureUptimeMonitor();
   const projects = listProjects();
   const docker = await dockerGroups();
   const [runtimes, repos] = await Promise.all([
@@ -80,6 +82,7 @@ export async function getStatus(user: SessionUser): Promise<Status> {
     projects,
     runtimes: Object.fromEntries(runtimes.map((runtime) => [runtime.id, runtime])),
     repos: Object.fromEntries(repos),
+    uptime: uptimeByProject(),
     activeDeploys: activeDeploysByProject(),
     activeActions: activeActionsByProject(),
     terminal: getTerminalSettings(),

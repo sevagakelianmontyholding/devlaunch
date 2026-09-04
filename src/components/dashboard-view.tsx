@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { Activity, ArrowRight, Boxes, Clock, FolderKanban, Plus, Power, Rocket, Server, Workflow } from "lucide-react";
+import { Activity, ArrowRight, Boxes, Clock, FolderKanban, Globe2, Plus, Power, Rocket, Server, Workflow } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getDashboard, getServerHealth, runCompose } from "@/actions";
 import { formatBytes } from "@/lib/format";
 import { actionRunning } from "@/lib/labels";
-import type { ActiveAction, ActiveDeploy, DashboardData, PipelineRun, RecentRun, ServerHealth } from "@/lib/types";
+import type { ActiveAction, ActiveDeploy, DashboardData, PipelineRun, RecentRun, ServerHealth, UptimeStatus } from "@/lib/types";
 import { PageHeader } from "./app-shell";
 import { ProjectDialog } from "./project-dialog";
 import { useStatus } from "./status-provider";
@@ -78,13 +78,18 @@ export function DashboardView() {
       const project = projects.find((item) => item.id === projectId);
       items.push({ key: `action:${action.runId}`, node: <ActiveActionRow projectId={projectId} projectName={project?.name ?? projectId} action={action} /> });
     }
+    for (const [projectId, uptime] of Object.entries(status.uptime)) {
+      if (uptime.up !== false) continue;
+      const project = projects.find((item) => item.id === projectId);
+      items.push({ key: `down:${projectId}`, node: <DownSiteRow projectId={projectId} projectName={project?.name ?? projectId} uptime={uptime} /> });
+    }
     for (const run of Object.values(status.activePipelines)) {
       if (run.status !== "running") continue;
       const pipeline = data?.pipelines.find((item) => item.id === run.pipelineId);
       items.push({ key: `pipeline:${run.id}`, node: <ActivePipelineRow name={pipeline?.name ?? "Pipeline"} run={run} /> });
     }
     return items;
-  }, [status.activeDeploys, status.activeActions, status.activePipelines, projects, data]);
+  }, [status.activeDeploys, status.activeActions, status.activePipelines, status.uptime, projects, data]);
 
   const toggle = async (projectId: string, isRunning: boolean) => {
     setBusyId(projectId);
@@ -140,7 +145,7 @@ export function DashboardView() {
           Happening now
         </CardTitle>
         {now.length === 0 ? (
-          <p className="text-[12px] text-ink-faint">All quiet. Nothing is deploying or starting right now.</p>
+          <p className="text-[12px] text-ink-faint">All quiet. Nothing is deploying or starting, and every live site is answering.</p>
         ) : (
           <div className="space-y-2">{now.map((item) => <div key={item.key}>{item.node}</div>)}</div>
         )}
@@ -365,6 +370,18 @@ function ActiveActionRow({ projectId, projectName, action }: { projectId: string
       <span className="text-warn">{actionRunning[action.action]}…</span>
       <span className="truncate font-mono text-[11px] text-ink-dim">{action.command}</span>
       <span className="ml-auto shrink-0 text-[11px] text-ink-faint">{duration(action.startedAt, null)}</span>
+    </Link>
+  );
+}
+
+function DownSiteRow({ projectId, projectName, uptime }: { projectId: string; projectName: string; uptime: UptimeStatus }) {
+  return (
+    <Link href={`/projects/${projectId}`} className="flex items-center gap-2 rounded-lg border border-danger/30 bg-danger/[0.07] px-3 py-2 text-[12px] transition hover:border-danger/60">
+      <Globe2 className="size-3.5 animate-pulse text-danger" />
+      <span className="font-medium">{projectName}</span>
+      <span className="text-danger">live site is down</span>
+      <span className="truncate font-mono text-[11px] text-ink-dim">{uptime.url.replace(/^https?:\/\//, "")} · {uptime.error}</span>
+      <span className="ml-auto shrink-0 text-[11px] text-ink-faint">since {timeAgo(uptime.since).replace(" ago", "")}</span>
     </Link>
   );
 }

@@ -175,6 +175,7 @@ export type Status = {
   projects: Project[];
   runtimes: Record<string, ProjectRuntime>;
   repos: Record<string, RepoStatus[]>;
+  uptime: Record<string, UptimeStatus>;
   activeDeploys: Record<string, ActiveDeploy>;
   activeActions: Record<string, ActiveAction>;
   terminal: TerminalSettings;
@@ -316,4 +317,15 @@ export type RepoStatus = {
   upstream: boolean;
   lastCommit: { hash: string; subject: string; date: string } | null;
   error: string | null;
+};
+
+export type UptimeStatus = {
+  projectId: string;
+  url: string;
+  up: boolean | null;
+  status: number | null;
+  latencyMs: number | null;
+  error: string | null;
+  checkedAt: string | null;
+  since: string;
 };

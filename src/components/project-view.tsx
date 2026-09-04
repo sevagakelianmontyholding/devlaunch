@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Boxes, Code2, ExternalLink, FlaskConical, FolderOpen, Globe2, Hammer, LayoutTemplate, Link2, Pencil, Power, RotateCw, TerminalSquare, Trash2 } from "lucide-react";
+import { ArrowLeft, Boxes, Code2, ExternalLink, FlaskConical, FolderOpen, Globe2, Hammer, LayoutTemplate, Link2, Pencil, Power, RefreshCw, RotateCw, TerminalSquare, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { openProject, openProjectTerminal, removeProject, runCompose } from "@/actions";
+import { checkLiveSite, openProject, openProjectTerminal, removeProject, runCompose } from "@/actions";
 import type { ComposeAction, LocalRun } from "@/lib/types";
 import { Deployments } from "./deployments";
 import { LogsPanel } from "./logs-panel";
@@ -11,6 +11,7 @@ import { NotesCard } from "./notes-card";
 import { useNavigate } from "./navigate";
 import { ProjectDialog } from "./project-dialog";
 import { ReposCard } from "./repos-card";
+import { LiveStatus } from "./projects-view";
 import { actionDone, actionRunning as runningLabel } from "@/lib/labels";
 import { SaveTemplateDialog } from "./templates-card";
 import { useStatus } from "./status-provider";
@@ -254,6 +255,26 @@ export function ProjectView({ id }: { id: string }) {
               {localUrl && <LinkRow href={localUrl} icon={<Globe2 className="size-3.5" />} label="Local" />}
               {project.testingUrl && <LinkRow href={project.testingUrl} icon={<FlaskConical className="size-3.5" />} label="Testing" />}
               {project.liveUrl && <LinkRow href={project.liveUrl} icon={<ExternalLink className="size-3.5" />} label="Live" />}
+              {project.liveUrl && (
+                <div className="flex items-center gap-2 px-1 text-[11px]">
+                  {status.uptime[project.id] ? <LiveStatus uptime={status.uptime[project.id]!} long /> : <span className="text-ink-faint">· Live site not checked yet</span>}
+                  <IconButton
+                    label="Check the live site now"
+                    className="ml-auto size-6"
+                    disabled={busy === "uptime"}
+                    onClick={async () => {
+                      setBusy("uptime");
+                      const result = await checkLiveSite(project.id);
+                      setBusy(null);
+                      if (!result.ok) return notify("error", result.error);
+                      notify(result.data.up ? "success" : "error", result.data.up ? `${project.name} live site is up (${result.data.latencyMs} ms)` : `${project.name} live site is down: ${result.data.error}`);
+                      void refresh();
+                    }}
+                  >
+                    <RefreshCw className={cx("size-3", busy === "uptime" && "animate-spin")} />
+                  </IconButton>
+                </div>
+              )}
               {!localUrl && !project.testingUrl && !project.liveUrl && <p className="text-[12px] text-ink-faint">No URLs yet — add them by editing the project.</p>}
             </div>
           </Card>

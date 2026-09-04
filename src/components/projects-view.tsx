@@ -7,11 +7,11 @@ import { formatBytes } from "@/lib/format";
 import { actionRunning } from "@/lib/labels";
 import { useMemo, useState } from "react";
 import { openProject, openProjectTerminal, runCompose } from "@/actions";
-import type { ActiveAction, ActiveDeploy, Project, ProjectRuntime, RepoStatus, Section } from "@/lib/types";
+import type { ActiveAction, ActiveDeploy, Project, ProjectRuntime, RepoStatus, Section, UptimeStatus } from "@/lib/types";
 import { PageHeader } from "./app-shell";
 import { ProjectDialog } from "./project-dialog";
 import { useStatus } from "./status-provider";
-import { Button, Dot, Empty, IconButton, IconLink, Input, Monogram, Segmented, cx } from "./ui";
+import { Button, Dot, Empty, IconButton, IconLink, Input, Monogram, Segmented, cx, timeAgo } from "./ui";
 
 type Filter = "all" | Section;
 type Sort = "name" | "running";
@@ -120,6 +120,7 @@ export function ProjectsView() {
                             project={project}
                             runtime={status.runtimes[project.id]}
                             repos={status.repos[project.id] ?? []}
+                            uptime={status.uptime[project.id]}
                             deploy={status.activeDeploys[project.id]}
                             action={status.activeActions[project.id]}
                             busy={busyId === project.id}
@@ -148,6 +149,7 @@ function ProjectCard({
   project,
   runtime,
   repos,
+  uptime,
   deploy,
   action,
   busy,
@@ -159,6 +161,7 @@ function ProjectCard({
   project: Project;
   runtime: ProjectRuntime | undefined;
   repos: RepoStatus[];
+  uptime: UptimeStatus | undefined;
   deploy: ActiveDeploy | undefined;
   action: ActiveAction | undefined;
   busy: boolean;
@@ -196,6 +199,7 @@ function ProjectCard({
             {runtime?.running && runtime.containers.length > 0 && (
               <span className="text-ink-faint">· {runtime.containers.filter((container) => container.state === "running").length} containers</span>
             )}
+            {uptime && <LiveStatus uptime={uptime} />}
           </p>
         </div>
       </div>
@@ -307,6 +311,17 @@ export function RepoBadge({ repo }: { repo: RepoStatus }) {
       {repo.changed > 0 && <span>●{repo.changed}</span>}
       {repo.behind > 0 && <span>↓{repo.behind}</span>}
       {repo.ahead > 0 && <span>↑{repo.ahead}</span>}
+    </span>
+  );
+}
+
+export function LiveStatus({ uptime, long }: { uptime: UptimeStatus; long?: boolean }) {
+  if (uptime.up === null) return <span className="inline-flex items-center gap-1 text-ink-faint">· <Dot tone="muted" pulse /> checking live site</span>;
+  const since = timeAgo(uptime.since).replace(" ago", "");
+  return (
+    <span className={cx("inline-flex items-center gap-1", uptime.up ? "text-ink-faint" : "text-danger")} title={uptime.up ? `${uptime.url} answered HTTP ${uptime.status} in ${uptime.latencyMs} ms · checked ${timeAgo(uptime.checkedAt ?? uptime.since)}` : `${uptime.url}: ${uptime.error} · checked ${timeAgo(uptime.checkedAt ?? uptime.since)}`}>
+      · <Dot tone={uptime.up ? "success" : "danger"} pulse={!uptime.up} />
+      {uptime.up ? (long ? `Live up · ${uptime.latencyMs} ms` : "Live up") : `Live down${since === "just now" ? "" : ` · ${since}`}`}
     </span>
   );
 }

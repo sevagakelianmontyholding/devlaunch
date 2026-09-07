@@ -189,7 +189,7 @@ function ProjectCard({
         if ((event.target as HTMLElement).closest("button, a")) return;
         navigate(`/projects/${project.id}`);
       }}
-      className="group flex min-w-0 cursor-pointer flex-col overflow-hidden rounded-card border border-line bg-panel p-4 transition hover:border-line-strong hover:bg-panel-2"
+      className="group flex min-w-0 cursor-pointer flex-col rounded-card border border-line bg-panel p-4 transition hover:border-line-strong hover:bg-panel-2"
     >
       <div className="flex items-start gap-3">
         <Monogram name={project.name} />

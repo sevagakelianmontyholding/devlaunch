@@ -10,6 +10,7 @@ import { openProject, openProjectTerminal, runCompose } from "@/actions";
 import type { ActiveAction, ActiveDeploy, Project, ProjectRuntime, RepoStatus, Section, ServerLock, UptimeStatus } from "@/lib/types";
 import { PageHeader } from "./app-shell";
 import { ProjectDialog } from "./project-dialog";
+import { TrashCard } from "./trash-card";
 import { useStatus } from "./status-provider";
 import { Button, Dot, Empty, IconButton, IconLink, Input, Monogram, Segmented, cx, timeAgo } from "./ui";
 
@@ -139,6 +140,10 @@ export function ProjectsView() {
           )}
         </>
       )}
+
+      <div className="mt-8">
+        <TrashCard />
+      </div>
 
       {adding && <ProjectDialog onClose={() => setAdding(false)} />}
 

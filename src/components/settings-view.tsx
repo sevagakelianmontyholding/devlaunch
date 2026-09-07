@@ -7,7 +7,6 @@ import { NotificationsCard } from "./notifications-card";
 import { TemplatesCard } from "./templates-card";
 import { VpnCard } from "./vpn-card";
 import { PhoneCard } from "./phone-card";
-import { TrashCard } from "./trash-card";
 import { TerminalCard } from "./terminal-card";
 import { ThemeCard } from "./theme";
 import { useStatus } from "./status-provider";
@@ -26,7 +25,6 @@ export function SettingsView() {
           <NotificationsCard />
           <VpnCard />
           <TemplatesCard />
-          <TrashCard />
         </div>
         <div className="space-y-4">
           <TerminalCard />

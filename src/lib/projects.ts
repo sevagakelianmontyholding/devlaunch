@@ -169,7 +169,7 @@ export async function createProject(input: ProjectInput): Promise<Project> {
     throw new UserError("This folder is already registered");
   }
   if (db().prepare("SELECT 1 FROM projects WHERE path = ? AND deleted_at IS NOT NULL").get(project.path)) {
-    throw new UserError("A removed project uses this folder. Restore it, or delete it for good, under Settings → Recently removed");
+    throw new UserError("A removed project uses this folder. Restore it, or delete it for good, under Recently removed at the bottom of the Projects page");
   }
   const id = uniqueId(project.name);
   const timestamp = now();

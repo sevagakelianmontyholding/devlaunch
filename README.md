@@ -106,7 +106,7 @@ Settings → Notifications: a macOS notification and/or a Slack or Discord webho
 - The **Dashboard** (home page) shows what is happening right now, the last deployments, server reachability, pipelines, and a quick start/stop list of your projects.
 - **Servers** shows the health of every deploy server (reachability, CPU architecture, Docker version, disk, memory, uptime, running containers) next to its Test/Edit/Remove controls; **Services** shows the containers on this Mac.
 - **Live site checks**: every project with a live URL is checked from this Mac every three minutes. The card shows "Live up" or "Live down", the project page shows the response time with a Check now button, the dashboard lists sites that are down, and a notification goes out when a site goes down (after two failed checks in a row) or comes back.
-- **Removing a project** keeps it under Settings → Recently removed for 30 days, with its deployments, actions and history, until you restore it or delete it for good.
+- **Removing a project** keeps it under Recently removed, at the bottom of the Projects page, for 30 days, with its deployments, actions and history, until you restore it or delete it for good.
 - **Notes** on each project page for the things you always forget.
 - **⌘K** opens a command palette: jump to a project or page, start/stop, open in VS Code or a terminal.
 - Settings → Appearance switches between dark and light.

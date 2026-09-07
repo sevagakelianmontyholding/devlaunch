@@ -112,7 +112,7 @@ Settings → Notifications: a macOS notification and/or a Slack or Discord webho
 
 ## On your phone
 
-DevLaunch is a web app, so it can live on your phone's home screen. **Settings → On your phone → Allow phone access** makes it answer on your network (sets `DEVLAUNCH_BIND=0.0.0.0` in `.env` and restarts the service); the card then shows the address and a QR code. Open it on the phone, sign in, and use *Add to Home Screen* (Share menu on iPhone, browser menu on Android). You get every screen, including deploys, terminals and the VPN button, in a phone layout with a tab bar. It works while the phone is on the same network as the Mac; from elsewhere you need a way into that network (Tailscale is the simplest). Notifications on the phone: use the Slack or Discord webhook in Settings → Notifications.
+DevLaunch is a web app, so it can live on your phone's home screen. **Settings → On your phone → Allow phone access** makes it answer on your network (sets `DEVLAUNCH_BIND=0.0.0.0` in `.env` and restarts the service); the card then shows the address and a QR code. Open it on the phone, sign in, and use *Add to Home Screen* (Share menu on iPhone, browser menu on Android). You get every screen, including deploys, terminals and the VPN button, in a phone layout with a tab bar, and a DevLaunch splash screen while it opens (`npm run splash` regenerates the images if the icon changes). It works while the phone is on the same network as the Mac; from elsewhere you need a way into that network (Tailscale is the simplest). Notifications on the phone: use the Slack or Discord webhook in Settings → Notifications.
 
 ## Serving it as devlaunch.localhost
 

@@ -89,6 +89,15 @@ button {
   -webkit-text-security: disc;
 }
 
+@keyframes slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(200%);
+  }
+}
+
 @keyframes fade-up {
   from {
     opacity: 0;

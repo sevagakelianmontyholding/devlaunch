@@ -62,7 +62,7 @@ export function StatusProvider({ initial, children }: { initial: Status; childre
   return (
     <StatusContext.Provider value={{ status, online, refresh, notify }}>
       {children}
-      <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex flex-col gap-2">
+      <div className="pointer-events-none fixed inset-x-4 bottom-[calc(72px+env(safe-area-inset-bottom))] z-[60] flex flex-col items-end gap-2 lg:inset-x-auto lg:bottom-4 lg:right-4">
         {toasts.map((toast) => (
           <div
             key={toast.id}

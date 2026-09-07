@@ -171,7 +171,7 @@ export function Dialog({ title, description, onClose, children, width = "max-w-[
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+    <div className="fixed inset-0 z-50 grid place-items-center p-4 pt-[calc(16px+env(safe-area-inset-top))] pb-[calc(16px+env(safe-area-inset-bottom))]">
       <button type="button" aria-label="Close" className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div role="dialog" aria-modal="true" className={cx("fade-up relative flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-card border border-line-strong bg-panel shadow-2xl", width)}>
         <div className="flex items-start gap-3 border-b border-line px-5 py-4">

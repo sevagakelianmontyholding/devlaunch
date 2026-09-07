@@ -29,7 +29,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen overflow-x-hidden lg:flex">
-      <aside className="border-b border-line bg-panel px-3 py-3 lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-[224px] lg:flex-col lg:border-b-0 lg:border-r lg:py-4">
+      <aside className="sticky top-0 z-30 border-b border-line bg-panel/95 px-3 pb-3 pt-[calc(12px+env(safe-area-inset-top))] backdrop-blur lg:static lg:z-auto lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-[224px] lg:flex-col lg:border-b-0 lg:border-r lg:bg-panel lg:py-4 lg:backdrop-blur-none">
         <div className="flex items-center gap-2.5 px-2">
           <span className="grid size-7 place-items-center rounded-lg bg-[#0f2f2b]">
             <svg viewBox="0 0 64 64" className="size-5" aria-hidden="true">

@@ -115,7 +115,9 @@ function fromRow(row: Row): Deployment {
 
 const selectDeployment = `
   SELECT deployments.*, servers.name AS server_name
-  FROM deployments JOIN servers ON servers.id = deployments.server_id
+  FROM deployments
+  JOIN servers ON servers.id = deployments.server_id
+  JOIN projects ON projects.id = deployments.project_id AND projects.deleted_at IS NULL
 `;
 
 export function listDeployments(projectId: string): Deployment[] {

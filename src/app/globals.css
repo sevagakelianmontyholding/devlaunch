@@ -77,6 +77,23 @@ button {
   font: inherit;
 }
 
+/* Everything clickable shows a hand; disabled controls say so. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+a[href],
+select:not(:disabled),
+summary,
+label:has(> input[type="checkbox"]:not(:disabled)),
+input[type="checkbox"]:not(:disabled) {
+  cursor: pointer;
+}
+button:disabled,
+select:disabled,
+input:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
+
 .nav-scroll {
   scrollbar-width: none;
 }

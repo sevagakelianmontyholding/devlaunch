@@ -14,7 +14,7 @@ import { deleteProjectAction, runProjectAction as startProjectAction, saveProjec
 import { stopLocalRun } from "@/lib/docker";
 import { getProject } from "@/lib/projects";
 import { saveTerminalSettings } from "@/lib/terminal";
-import { createProject, deleteProject, pickFolder, saveNotes, uniqueId, updateProject } from "@/lib/projects";
+import { createProject, deleteProject, listTrashed, pickFolder, purgeProject, restoreProject, saveNotes, uniqueId, updateProject } from "@/lib/projects";
 import { applyTemplateDeployments, createTemplateFromProject, deleteTemplate, fillProjectInput, getTemplate, listTemplates } from "@/lib/templates";
 import path from "node:path";
 import { createServer, deleteServer, listServers, openServerTerminal as openSsh, serverHealth, testServer, updateServer } from "@/lib/servers";
@@ -45,6 +45,7 @@ import type {
   SessionUser,
   TerminalApp,
   TerminalSettings,
+  TrashedProject,
   PhoneAccess,
   UptimeStatus,
   VpnSettings,
@@ -100,6 +101,19 @@ export async function saveProjectNotes(id: string, notes: string): Promise<Actio
 
 export async function removeProject(id: string): Promise<ActionResult<Project>> {
   return attempt(() => deleteProject(id));
+}
+
+export async function getTrash(): Promise<TrashedProject[]> {
+  await requireUser();
+  return listTrashed();
+}
+
+export async function restoreTrashedProject(id: string): Promise<ActionResult<Project>> {
+  return attempt(() => restoreProject(id));
+}
+
+export async function purgeTrashedProject(id: string): Promise<ActionResult<Project>> {
+  return attempt(() => purgeProject(id));
 }
 
 export async function pickProjectFolder(): Promise<ActionResult<string>> {

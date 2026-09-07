@@ -4,7 +4,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { db, now } from "./db";
 import { run, UserError } from "./shell";
-import type { ComposeAction, Project, ProjectInput, Section } from "./types";
+import type { ComposeAction, Project, ProjectInput, Section, TrashedProject } from "./types";
 
 const actions: ComposeAction[] = ["start", "stop", "restart", "rebuild"];
 
@@ -23,6 +23,7 @@ type Row = {
   rebuild_command: string | null;
   repo_paths: string | null;
   notes: string | null;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -46,12 +47,46 @@ function fromRow(row: Row): Project {
 }
 
 export function listProjects(): Project[] {
-  return (db().prepare("SELECT * FROM projects ORDER BY name COLLATE NOCASE").all() as Row[]).map(fromRow);
+  return (db().prepare("SELECT * FROM projects WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE").all() as Row[]).map(fromRow);
 }
 
 export function getProject(id: string): Project | null {
-  const row = db().prepare("SELECT * FROM projects WHERE id = ?").get(id) as Row | undefined;
+  const row = db().prepare("SELECT * FROM projects WHERE id = ? AND deleted_at IS NULL").get(id) as Row | undefined;
   return row ? fromRow(row) : null;
+}
+
+// Removing a project only marks it; it sits in "Recently removed" with its
+// deployments, actions and history for 30 days, then is purged for real.
+export const TRASH_DAYS = 30;
+
+export function listTrashed(): TrashedProject[] {
+  const rows = db()
+    .prepare(
+      `SELECT p.id, p.name, p.path, p.deleted_at, (SELECT COUNT(*) FROM deployments d WHERE d.project_id = p.id) AS deployments
+       FROM projects p WHERE p.deleted_at IS NOT NULL ORDER BY p.deleted_at DESC`,
+    )
+    .all() as Array<{ id: string; name: string; path: string; deleted_at: string; deployments: number }>;
+  return rows.map((row) => ({ id: row.id, name: row.name, path: row.path, deletedAt: row.deleted_at, deployments: row.deployments, expiresAt: new Date(new Date(row.deleted_at).getTime() + TRASH_DAYS * 86_400_000).toISOString() }));
+}
+
+export function restoreProject(id: string): Project {
+  const row = db().prepare("SELECT * FROM projects WHERE id = ? AND deleted_at IS NOT NULL").get(id) as Row | undefined;
+  if (!row) throw new UserError("That project is not in Recently removed");
+  if (db().prepare("SELECT 1 FROM projects WHERE path = ? AND deleted_at IS NULL").get(row.path)) throw new UserError("Another project already uses that folder; remove it first");
+  db().prepare("UPDATE projects SET deleted_at = NULL, updated_at = ? WHERE id = ?").run(now(), id);
+  return getProject(id)!;
+}
+
+export function purgeProject(id: string) {
+  const row = db().prepare("SELECT * FROM projects WHERE id = ? AND deleted_at IS NOT NULL").get(id) as Row | undefined;
+  if (!row) throw new UserError("That project is not in Recently removed");
+  db().prepare("DELETE FROM projects WHERE id = ?").run(id);
+  return fromRow(row);
+}
+
+export function purgeExpiredTrash() {
+  const cutoff = new Date(Date.now() - TRASH_DAYS * 86_400_000).toISOString();
+  db().prepare("DELETE FROM projects WHERE deleted_at IS NOT NULL AND deleted_at < ?").run(cutoff);
 }
 
 function optionalUrl(value: string, label: string) {
@@ -130,8 +165,11 @@ export function uniqueId(name: string) {
 
 export async function createProject(input: ProjectInput): Promise<Project> {
   const project = await validate(input);
-  if (db().prepare("SELECT 1 FROM projects WHERE path = ?").get(project.path)) {
+  if (db().prepare("SELECT 1 FROM projects WHERE path = ? AND deleted_at IS NULL").get(project.path)) {
     throw new UserError("This folder is already registered");
+  }
+  if (db().prepare("SELECT 1 FROM projects WHERE path = ? AND deleted_at IS NOT NULL").get(project.path)) {
+    throw new UserError("A removed project uses this folder. Restore it, or delete it for good, under Settings → Recently removed");
   }
   const id = uniqueId(project.name);
   const timestamp = now();
@@ -160,7 +198,7 @@ export async function createProject(input: ProjectInput): Promise<Project> {
 export async function updateProject(id: string, input: ProjectInput): Promise<Project> {
   if (!getProject(id)) throw new UserError("Project not found");
   const project = await validate(input);
-  if (db().prepare("SELECT 1 FROM projects WHERE path = ? AND id != ?").get(project.path, id)) {
+  if (db().prepare("SELECT 1 FROM projects WHERE path = ? AND id != ? AND deleted_at IS NULL").get(project.path, id)) {
     throw new UserError("Another project already uses this folder");
   }
   db()
@@ -193,7 +231,7 @@ export function saveNotes(id: string, notes: string) {
 export function deleteProject(id: string) {
   const project = getProject(id);
   if (!project) throw new UserError("Project not found");
-  db().prepare("DELETE FROM projects WHERE id = ?").run(id);
+  db().prepare("UPDATE projects SET deleted_at = ? WHERE id = ?").run(now(), id);
   return project;
 }
 

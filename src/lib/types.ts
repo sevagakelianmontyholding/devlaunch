@@ -386,3 +386,12 @@ export type PhoneAccess = {
   urls: string[];
   qrSvg: string | null;
 };
+
+export type TrashedProject = {
+  id: string;
+  name: string;
+  path: string;
+  deletedAt: string;
+  expiresAt: string;
+  deployments: number;
+};

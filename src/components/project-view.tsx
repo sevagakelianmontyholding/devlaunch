@@ -200,7 +200,7 @@ export function ProjectView({ id }: { id: string }) {
             title={`Remove ${project.name}?`}
             body={
               <>
-                Only the DevLaunch entry and its deployments are removed. The folder <span className="font-mono text-ink">{project.path}</span> is not touched.
+                It moves to Recently removed (Settings) for 30 days with its deployments, actions and history, and can be restored from there. The folder <span className="font-mono text-ink">{project.path}</span> is not touched.
               </>
             }
             confirmLabel="Remove"

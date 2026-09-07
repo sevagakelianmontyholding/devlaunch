@@ -10,7 +10,7 @@ import { vpnStatus } from "./vpn";
 import { activePipelineRunsById, ensureScheduler } from "./pipelines";
 import { getTerminalSettings } from "./terminal";
 import { ensureUptimeMonitor, uptimeByProject } from "./uptime";
-import { listProjects } from "./projects";
+import { listProjects, purgeExpiredTrash } from "./projects";
 import { run } from "./shell";
 import type { Container, Project, ProjectRuntime, SessionUser, Status } from "./types";
 
@@ -73,6 +73,7 @@ export async function getStatus(user: SessionUser): Promise<Status> {
   ensureScheduler();
   ensureUptimeMonitor();
   ensureLockMonitor();
+  purgeExpiredTrash();
   const projects = listProjects();
   const docker = await dockerGroups();
   const [runtimes, repos] = await Promise.all([

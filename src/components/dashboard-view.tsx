@@ -121,7 +121,7 @@ export function DashboardView() {
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
         <Stat href="/projects" icon={<FolderKanban className="size-4" />} label="Projects" value={projects.length} detail={`${running.length} running locally`} />
         <Stat href="/services" icon={<Boxes className="size-4" />} label="Containers" value={runningContainers} detail={status.dockerAvailable ? `${containers.length - runningContainers} stopped · Docker ready` : "Docker is not running"} tone={status.dockerAvailable ? undefined : "warn"} />
         <Stat
@@ -161,7 +161,7 @@ export function DashboardView() {
         )}
       </Card>
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-3">
+      <div className="mt-3 grid gap-3 grid-cols-1 lg:grid-cols-3">
         <Card className="min-w-0 lg:col-span-2">
           <CardTitle icon={<Rocket className="size-4" />}>Recent deployments</CardTitle>
           {!data ? (
@@ -278,7 +278,7 @@ export function DashboardView() {
             .
           </p>
         ) : (
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
             {[...projects]
               .sort((a, b) => Number(Boolean(runtimes[b.id]?.running)) - Number(Boolean(runtimes[a.id]?.running)) || a.name.localeCompare(b.name))
               .map((project) => {

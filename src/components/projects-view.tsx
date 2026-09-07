@@ -113,7 +113,7 @@ export function ProjectsView() {
                       <h2 className="mb-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-dim">
                         {section.label} <span className="ml-1 font-normal text-ink-faint">{projects.length}</span>
                       </h2>
-                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      <div className="grid gap-3 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
                         {projects.map((project) => (
                           <ProjectCard
                             key={project.id}
@@ -189,7 +189,7 @@ function ProjectCard({
         if ((event.target as HTMLElement).closest("button, a")) return;
         navigate(`/projects/${project.id}`);
       }}
-      className="group flex cursor-pointer flex-col rounded-card border border-line bg-panel p-4 transition hover:border-line-strong hover:bg-panel-2"
+      className="group flex min-w-0 cursor-pointer flex-col overflow-hidden rounded-card border border-line bg-panel p-4 transition hover:border-line-strong hover:bg-panel-2"
     >
       <div className="flex items-start gap-3">
         <Monogram name={project.name} />

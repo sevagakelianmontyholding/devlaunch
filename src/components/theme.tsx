@@ -60,7 +60,7 @@ export function ThemeCard() {
       <div className="mt-4 flex items-center gap-2 text-[12px] font-medium">
         <SquareTerminal className="size-3.5 text-accent" /> Terminal
       </div>
-      <div className="mt-2 grid gap-3 sm:grid-cols-[1fr_auto]">
+      <div className="mt-2 grid gap-3 grid-cols-1 sm:grid-cols-[1fr_auto]">
         <Field label="Font" hint="installed monospace fonts">
           <Select value={prefs.family} onChange={(event) => update({ ...prefs, family: event.target.value })}>
             {fonts.map((font) => (

@@ -219,7 +219,7 @@ function ActionDialog({ projectId, action, onClose }: { projectId: string; actio
   return (
     <Dialog title={action ? `Edit ${action.name}` : "Add an action"} description="A button that runs your commands, one per line, stopping at the first failure." onClose={onClose} width="max-w-[560px]">
       <form onSubmit={submit} className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
           <Field label="Name">
             <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Run migrations" maxLength={40} autoFocus />
           </Field>

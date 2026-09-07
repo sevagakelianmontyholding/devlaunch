@@ -211,7 +211,7 @@ export function ProjectView({ id }: { id: string }) {
         </div>
       )}
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+      <div className="mt-6 grid gap-4 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <div className="min-w-0 space-y-4">
           <ActionsCard project={project} actions={status.actions[project.id] ?? []} />
           <ReposCard project={project} repos={status.repos[project.id] ?? []} />

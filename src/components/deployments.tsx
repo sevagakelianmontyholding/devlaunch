@@ -380,7 +380,7 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
   return (
     <Dialog title={deployment ? `Edit ${deployment.name}` : "Add a deployment"} description="Nothing runs on the server except the commands you write below." onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
           <Field label="Name">
             <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Production" autoFocus />
           </Field>
@@ -414,7 +414,7 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
         </Field>
 
         {mode === "image" && (
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             <Field label="Image name">
               <Input value={imageName} onChange={(event) => setImageName(event.target.value)} placeholder={`${projectId}-web`} className={mono} />
             </Field>
@@ -467,7 +467,7 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
         <div className="rounded-lg border border-line bg-bg p-3">
           <p className="text-[12px] font-medium">Health check</p>
           <p className="mt-1 text-[11px] leading-4 text-ink-dim">Optional. After the commands finish, DevLaunch polls this URL from this Mac until it answers (any status below 400). The run only succeeds if it does.</p>
-          <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_140px]">
+          <div className="mt-3 grid gap-3 grid-cols-1 sm:grid-cols-[1fr_140px]">
             <Field label="URL">
               <div className="flex gap-2">
                 <Input value={healthUrl} onChange={(event) => setHealthUrl(event.target.value)} placeholder={liveUrl ?? "https://my-app.com/health"} inputMode="url" className={mono} />

@@ -71,7 +71,7 @@ export function ServersView() {
       ) : servers.length === 0 ? (
         <Empty icon={<Server className="size-4" />} title="No servers yet" hint="Add a VPS with its SSH key to enable deployments." action={<Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setEditing("new")}>Add server</Button>} />
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
           {servers.map((server) => {
             const info = health[server.id];
             return (
@@ -214,7 +214,7 @@ function ServerDialog({ server, onClose, onSaved }: { server: DeployServer | nul
   return (
     <Dialog title={server ? `Edit ${server.name}` : "Add a deploy server"} onClose={onClose} width="max-w-[640px]">
       <form onSubmit={submit} className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
           <Field label="Name">
             <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Production VPS" autoFocus />
           </Field>

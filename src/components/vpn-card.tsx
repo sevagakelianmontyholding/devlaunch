@@ -137,7 +137,7 @@ export function VpnCard() {
             <Field label={settings.profileSaved ? "Replace profile" : "Profile"} hint=".ovpn contents, or its path on this Mac">
               <Textarea value={profile} onChange={(event) => setProfile(event.target.value)} rows={3} spellCheck={false} placeholder={"client\ndev tun\nremote vpn.example.com 1194\n…   or   /Users/you/Downloads/me@vpn.example.com.ovpn"} className="font-mono text-[11px]" />
             </Field>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
               <Field label="VPN username">
                 <Input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="off" placeholder="first.last" />
               </Field>

@@ -182,7 +182,7 @@ function PipelineDialog({ pipeline, onClose, onSaved }: { pipeline: Pipeline | n
             {options.length === 0 && <p className="text-[11px] text-ink-faint">Add a deployment to a project first.</p>}
           </div>
         </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
           <Field label="Daily at" hint="optional, 24h — e.g. 03:30">
             <Input value={schedule} onChange={(event) => setSchedule(event.target.value)} placeholder="03:30" className="font-mono text-[12px]" />
           </Field>

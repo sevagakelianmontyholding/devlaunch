@@ -123,7 +123,7 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
           </div>
         </Field>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
           <Field label="Name">
             <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="My App" />
           </Field>
@@ -134,7 +134,7 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
           </Field>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
           <Field label="Local URL" hint="optional">
             <Input value={localUrl} onChange={(event) => setLocalUrl(event.target.value)} placeholder="http://my-app.localhost" inputMode="url" className="font-mono text-[12px]" />
           </Field>
@@ -156,7 +156,7 @@ export function ProjectDialog({ project, onClose, onSaved }: { project?: Project
           <Field label="Compose file" hint="relative to the project, optional" className="mt-3">
             <Input value={composeFile} onChange={(event) => setComposeFile(event.target.value)} placeholder="docker-compose.yml" className="font-mono text-[12px]" />
           </Field>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="mt-3 grid gap-3 grid-cols-1 sm:grid-cols-2">
             {(
               [
                 ["start", "up -d"],

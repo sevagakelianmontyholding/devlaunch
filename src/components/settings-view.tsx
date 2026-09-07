@@ -19,7 +19,7 @@ export function SettingsView() {
     <div>
       <PageHeader title="Settings" subtitle="Your account and how DevLaunch runs on this Mac." />
 
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 lg:items-start">
         <div className="space-y-4">
           <AccountCard />
           <NotificationsCard />

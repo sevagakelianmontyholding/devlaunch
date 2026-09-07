@@ -9,6 +9,7 @@
     "start": "next start --hostname ${DEVLAUNCH_BIND:-127.0.0.1} --port ${DEVLAUNCH_PORT:-3000}",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "icons": "node scripts/icons.mjs",
     "splash": "node scripts/splash.mjs",
     "notifier": "node scripts/notifier.mjs",
     "service:install": "node scripts/notifier.mjs && node scripts/service.mjs install",

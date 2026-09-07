@@ -472,7 +472,7 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
               <div className="flex gap-2">
                 <Input value={healthUrl} onChange={(event) => setHealthUrl(event.target.value)} placeholder={liveUrl ?? "https://my-app.com/health"} inputMode="url" className={mono} />
                 {liveUrl && !healthUrl && (
-                  <Button type="button" size="sm" onClick={() => setHealthUrl(liveUrl)}>
+                  <Button type="button" onClick={() => setHealthUrl(liveUrl)} className="shrink-0 whitespace-nowrap">
                     Use live URL
                   </Button>
                 )}

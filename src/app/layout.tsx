@@ -34,7 +34,17 @@ export const metadata: Metadata = {
       { url: "/splash/375x667@2.png", media: "screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" }
     ],
   },
-  icons: { apple: "/icons/icon-180.png" },
+  // Listing `icons` replaces the file-based icon.svg convention, so spell everything out:
+  // SVG for modern browsers, PNG/ICO for Safari and tabs that ignore SVG, Apple touch icon.
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/icons/icon-180.png",
+  },
 };
 
 export const viewport: Viewport = {

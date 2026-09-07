@@ -271,7 +271,7 @@ function DeployStrip({ deploy }: { deploy: ActiveDeploy }) {
       <div className="flex items-center gap-1.5">
         <Rocket className="size-3 animate-pulse text-accent" />
         <span className="font-medium text-accent">Deploying</span>
-        <span className="truncate text-ink-dim">· {deploy.deploymentName}</span>
+        <span className="min-w-0 truncate text-ink-dim">· {deploy.deploymentName}</span>
         <span className="ml-auto shrink-0 text-ink-dim">{deploy.phase ? phaseLabel[deploy.phase] : "Starting"}{upload ? ` ${upload.percent}%` : "…"}</span>
       </div>
       {upload && (
@@ -297,7 +297,7 @@ function ActionStrip({ action }: { action: ActiveAction }) {
     <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-warn/25 bg-warn/[0.07] px-3 py-2 text-[11px]">
       <Dot tone="warn" pulse />
       <span className="font-medium text-warn">{action.label ?? actionRunning[action.action]}…</span>
-      <span className="truncate font-mono text-ink-dim" title={action.command}>
+      <span className="min-w-0 truncate font-mono text-ink-dim" title={action.command}>
         {action.command}
       </span>
     </div>
@@ -347,7 +347,7 @@ export function LockStrip({ held }: { held: ServerLock }) {
     <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-warn/25 bg-warn/[0.07] px-3 py-2 text-[11px]">
       <Lock className="size-3 shrink-0 text-warn" />
       <span className="font-medium text-warn">{held.serverName} busy</span>
-      <span className="truncate text-ink-dim" title={`${lock.user ?? lock.machine} is ${verb} ${lock.project} · ${lock.deployment} from ${lock.machine}`}>
+      <span className="min-w-0 truncate text-ink-dim" title={`${lock.user ?? lock.machine} is ${verb} ${lock.project} · ${lock.deployment} from ${lock.machine}`}>
         · {lock.user ?? lock.machine} {verb} {lock.project} · {lock.deployment}
       </span>
       <span className="ml-auto shrink-0 text-ink-faint">{timeAgo(lock.startedAt).replace(" ago", "")}</span>

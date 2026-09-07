@@ -349,7 +349,7 @@ function ActiveDeployRow({ projectId, projectName, deploy }: { projectId: string
       <div className="flex items-center gap-2">
         <Rocket className="size-3.5 animate-pulse text-accent" />
         <span className="font-medium">{projectName}</span>
-        <span className="truncate text-ink-dim">· {deploy.deploymentName}</span>
+        <span className="min-w-0 truncate text-ink-dim">· {deploy.deploymentName}</span>
         <span className="ml-auto shrink-0 text-[11px] text-ink-dim">
           {deploy.phase ? phaseLabel[deploy.phase] : "Starting"}
           {upload ? ` ${upload.percent}%` : "…"} · {duration(deploy.startedAt, null)}
@@ -378,7 +378,7 @@ function ActiveActionRow({ projectId, projectName, action }: { projectId: string
       <Dot tone="warn" pulse />
       <span className="font-medium">{projectName}</span>
       <span className="text-warn">{action.label ?? actionRunning[action.action]}…</span>
-      <span className="truncate font-mono text-[11px] text-ink-dim">{action.command}</span>
+      <span className="min-w-0 truncate font-mono text-[11px] text-ink-dim">{action.command}</span>
       <span className="ml-auto shrink-0 text-[11px] text-ink-faint">{duration(action.startedAt, null)}</span>
     </Link>
   );
@@ -390,7 +390,7 @@ function DownSiteRow({ projectId, projectName, uptime }: { projectId: string; pr
       <Globe2 className="size-3.5 animate-pulse text-danger" />
       <span className="font-medium">{projectName}</span>
       <span className="text-danger">live site is down</span>
-      <span className="truncate font-mono text-[11px] text-ink-dim">{uptime.url.replace(/^https?:\/\//, "")} · {uptime.error}</span>
+      <span className="min-w-0 truncate font-mono text-[11px] text-ink-dim">{uptime.url.replace(/^https?:\/\//, "")} · {uptime.error}</span>
       <span className="ml-auto shrink-0 text-[11px] text-ink-faint">since {timeAgo(uptime.since).replace(" ago", "")}</span>
     </Link>
   );
@@ -402,7 +402,7 @@ function ActivePipelineRow({ name, run }: { name: string; run: PipelineRun }) {
     <Link href="/pipelines" className="flex items-center gap-2 rounded-lg border border-accent/25 bg-accent/[0.07] px-3 py-2 text-[12px] transition hover:border-accent/50">
       <Workflow className="size-3.5 animate-pulse text-accent" />
       <span className="font-medium">{name}</span>
-      <span className="truncate text-ink-dim">
+      <span className="min-w-0 truncate text-ink-dim">
         · step {run.currentStep + 1} of {run.steps.length}
         {step ? ` — ${step.deploymentName}` : ""}
       </span>

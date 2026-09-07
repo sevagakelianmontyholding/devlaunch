@@ -154,7 +154,9 @@ export function TerminalView({ runId, text, rows = 16, className, interactive = 
       ref={containerRef}
       onClick={() => interactive && termRef.current?.focus()}
       className={cx("w-full min-w-0 overflow-hidden rounded-lg border border-line p-2", interactive ? "cursor-text" : "", className)}
-      style={{ background: "var(--terminal-bg, #07070a)", height: `${Math.round(rows * prefs.size * 1.2) + 16}px` }}
+      // The terminal sets its own exact height from `rows` and the font metrics; the
+      // minimum keeps the box stable before it mounts.
+      style={{ background: "var(--terminal-bg, #07070a)", minHeight: `${Math.round(rows * prefs.size * 1.2) + 16}px` }}
     />
   );
 }

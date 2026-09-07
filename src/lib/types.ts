@@ -378,3 +378,11 @@ export type VpnSettings = {
   sudoReady: boolean;
   setupCommand: string;
 };
+
+export type PhoneAccess = {
+  open: boolean;
+  bind: string;
+  port: string;
+  urls: string[];
+  qrSvg: string | null;
+};

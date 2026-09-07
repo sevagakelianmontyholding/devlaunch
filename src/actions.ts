@@ -8,6 +8,7 @@ import { activePipelineRunsById, deletePipeline, listPipelines, savePipeline, st
 import { openInEditor, openInTerminal, startAction } from "@/lib/docker";
 import { startGitRun } from "@/lib/git";
 import { checkSite } from "@/lib/uptime";
+import { enablePhoneAccess as setPhoneAccess, phoneAccess } from "@/lib/phone";
 import { connectVpn as startVpn, disconnectVpn as stopVpn, forgetVpn, getVpnSettings as loadVpnSettings, saveVpnCredentials, saveVpnProfile } from "@/lib/vpn";
 import { deleteProjectAction, runProjectAction as startProjectAction, saveProjectAction } from "@/lib/project-actions";
 import { stopLocalRun } from "@/lib/docker";
@@ -44,6 +45,7 @@ import type {
   SessionUser,
   TerminalApp,
   TerminalSettings,
+  PhoneAccess,
   UptimeStatus,
   VpnSettings,
   VpnStatus,
@@ -241,6 +243,19 @@ export async function getDeployRuns(deploymentId: string): Promise<DeployRunSumm
 export async function openServerTerminal(serverId: string, remotePath?: string | null): Promise<ActionResult> {
   return attempt(async () => {
     await openSsh(serverId, remotePath);
+    return undefined;
+  });
+}
+
+// Phone access
+export async function getPhoneAccess(): Promise<PhoneAccess> {
+  await requireUser();
+  return phoneAccess();
+}
+
+export async function togglePhoneAccess(enable: boolean): Promise<ActionResult> {
+  return attempt(() => {
+    setPhoneAccess(enable);
     return undefined;
   });
 }

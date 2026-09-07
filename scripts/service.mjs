@@ -53,6 +53,7 @@ function install() {
   if (!existsSync(path.join(root, ".next", "BUILD_ID"))) throw new Error("Build first: npm run build");
   const env = readEnv();
   const port = env.DEVLAUNCH_PORT ?? "3000";
+  const bind = env.DEVLAUNCH_BIND ?? "127.0.0.1";
   const node = execFileSync("sh", ["-lc", "command -v node"], { encoding: "utf8" }).trim();
   const nextBin = path.join(root, "node_modules", "next", "dist", "bin", "next");
   const vars = {
@@ -60,6 +61,8 @@ function install() {
     HOME: homedir(),
     NODE_ENV: "production",
     DEVLAUNCH_DATA_DIR: env.DEVLAUNCH_DATA_DIR ?? path.join(root, "data"),
+    DEVLAUNCH_BIND: bind,
+    DEVLAUNCH_PORT: port,
   };
   const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -71,7 +74,7 @@ function install() {
     <string>${xml(node)}</string>
     <string>${xml(nextBin)}</string>
     <string>start</string>
-    <string>--hostname</string><string>127.0.0.1</string>
+    <string>--hostname</string><string>${bind}</string>
     <string>--port</string><string>${xml(port)}</string>
   </array>
   <key>WorkingDirectory</key><string>${xml(root)}</string>
@@ -98,7 +101,7 @@ ${Object.entries(vars)
   for (let attempt = 0; attempt < 50 && isLoaded(); attempt += 1) sleep(100);
   launchctl(["bootstrap", domain, plistPath]);
   launchctl(["kickstart", "-k", `${domain}/${label}`]);
-  console.log(`DevLaunch is running at http://127.0.0.1:${port} and will start at login.`);
+  console.log(`DevLaunch is running at http://${bind === "0.0.0.0" ? "127.0.0.1" : bind}:${port}${bind === "0.0.0.0" ? " (and from other devices on your network)" : ""} and will start at login.`);
   console.log(`Data folder: ${vars.DEVLAUNCH_DATA_DIR}`);
 }
 

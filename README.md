@@ -110,6 +110,10 @@ Settings → Notifications: a macOS notification and/or a Slack or Discord webho
 - **⌘K** opens a command palette: jump to a project or page, start/stop, open in VS Code or a terminal.
 - Settings → Appearance switches between dark and light.
 
+## On your phone
+
+DevLaunch is a web app, so it can live on your phone's home screen. **Settings → On your phone → Allow phone access** makes it answer on your network (sets `DEVLAUNCH_BIND=0.0.0.0` in `.env` and restarts the service); the card then shows the address and a QR code. Open it on the phone, sign in, and use *Add to Home Screen* (Share menu on iPhone, browser menu on Android). You get every screen, including deploys, terminals and the VPN button, in a phone layout with a tab bar. It works while the phone is on the same network as the Mac; from elsewhere you need a way into that network (Tailscale is the simplest). Notifications on the phone: use the Slack or Discord webhook in Settings → Notifications.
+
 ## Serving it as devlaunch.localhost
 
 DevLaunch listens on `127.0.0.1:3000`. To reach it as `http://devlaunch.localhost` through Nginx Proxy Manager (NPM) running in Docker:

@@ -43,7 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </span>
         </div>
 
-        <nav className="nav-scroll -mx-3 mt-3 flex gap-1 overflow-x-auto px-3 lg:mx-0 lg:mt-6 lg:flex-col lg:overflow-visible lg:px-0" aria-label="Main">
+        <nav className="mt-6 hidden lg:flex lg:flex-col gap-1" aria-label="Main">
           {nav.map((item) => (
             <Link
               key={item.href}
@@ -97,9 +97,19 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <CommandPalette />
 
-      <main className="flex-1 lg:pl-[224px]">
+      <main className="flex-1 pb-[calc(64px+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-[224px]">
         <div className="mx-auto w-full max-w-[1180px] px-5 py-6 sm:px-8 sm:py-8">{children}</div>
       </main>
+
+      {/* Phone and tablet: tab bar along the bottom, above the home indicator. */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-line bg-panel/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label="Main">
+        {nav.map((item) => (
+          <Link key={item.href} href={item.href} className={cx("flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] transition", item.active ? "text-accent" : "text-ink-dim")}>
+            <item.icon className="size-5" />
+            {item.label}
+          </Link>
+        ))}
+      </nav>
     </div>
   );
 }

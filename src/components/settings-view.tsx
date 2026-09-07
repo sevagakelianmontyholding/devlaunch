@@ -6,6 +6,7 @@ import { AccountCard } from "./account-card";
 import { NotificationsCard } from "./notifications-card";
 import { TemplatesCard } from "./templates-card";
 import { VpnCard } from "./vpn-card";
+import { PhoneCard } from "./phone-card";
 import { TerminalCard } from "./terminal-card";
 import { ThemeCard } from "./theme";
 import { useStatus } from "./status-provider";
@@ -28,6 +29,7 @@ export function SettingsView() {
         <div className="space-y-4">
           <TerminalCard />
           <ThemeCard />
+          <PhoneCard />
           <Card>
           <CardTitle icon={<Zap className="size-4" />}>This Mac</CardTitle>
           <dl className="space-y-2 text-[12px]">

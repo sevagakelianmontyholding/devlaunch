@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, History } from "lucide-react";
+import { ChevronLeft, ChevronRight, History } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { getRunHistory } from "@/actions";
 import type { RecentRun } from "@/lib/types";
@@ -10,7 +10,7 @@ import { useStatus } from "./status-provider";
 import { Button, Dot, Empty, Segmented, Select, Spinner, cx, timeAgo } from "./ui";
 
 type StatusFilter = "all" | "success" | "error" | "cancelled";
-const PAGE = 50;
+const PAGE = 25;
 const kindLabel = { deploy: "Deploy", commands: "Commands", rollback: "Rollback" } as const;
 
 export function DeploymentsIndex() {
@@ -36,34 +36,37 @@ function RunHistory() {
   const [projectId, setProjectId] = useState("");
   const [runs, setRuns] = useState<RecentRun[] | null>(null);
   const [total, setTotal] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
   const activeCount = Object.keys(status.activeDeploys).length;
+  const pages = Math.max(1, Math.ceil(total / PAGE));
 
   const load = useCallback(async () => {
-    const result = await getRunHistory({ status: filter, projectId: projectId || undefined, limit: PAGE, offset: 0 });
+    const result = await getRunHistory({ status: filter, projectId: projectId || undefined, limit: PAGE, offset: (page - 1) * PAGE });
     setRuns(result.runs);
     setTotal(result.total);
-  }, [filter, projectId]);
+  }, [filter, projectId, page]);
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
   }, [load, activeCount]);
 
-  const more = async () => {
-    if (!runs) return;
-    setLoadingMore(true);
-    const result = await getRunHistory({ status: filter, projectId: projectId || undefined, limit: PAGE, offset: runs.length });
-    setRuns([...runs, ...result.runs]);
-    setTotal(result.total);
-    setLoadingMore(false);
+  const changeFilter = (next: StatusFilter) => {
+    setFilter(next);
+    setPage(1);
   };
+  const changeProject = (next: string) => {
+    setProjectId(next);
+    setPage(1);
+  };
+  // Page numbers to show: first, last, and a window around the current page.
+  const pageNumbers = [...new Set([1, pages, page - 1, page, page + 1].filter((n) => n >= 1 && n <= pages))].sort((a, b) => a - b);
 
   return (
     <>
       <div className="-mt-2 mb-4 flex flex-wrap items-center gap-3">
         <Segmented
           value={filter}
-          onChange={setFilter}
+          onChange={changeFilter}
           options={[
             { value: "all", label: "All" },
             { value: "success", label: "Succeeded" },
@@ -71,7 +74,7 @@ function RunHistory() {
             { value: "cancelled", label: "Cancelled" },
           ]}
         />
-        <Select value={projectId} onChange={(event) => setProjectId(event.target.value)} className="w-auto min-w-[180px]">
+        <Select value={projectId} onChange={(event) => changeProject(event.target.value)} className="w-auto min-w-[180px]">
           <option value="">All projects</option>
           {status.projects.map((project) => (
             <option key={project.id} value={project.id}>
@@ -81,7 +84,7 @@ function RunHistory() {
         </Select>
         {runs && (
           <span className="text-[12px] text-ink-dim">
-            {total} run{total === 1 ? "" : "s"}
+            {total === 0 ? "0 runs" : `${(page - 1) * PAGE + 1}–${Math.min(page * PAGE, total)} of ${total} run${total === 1 ? "" : "s"}`}
           </span>
         )}
       </div>
@@ -118,12 +121,23 @@ function RunHistory() {
               );
             })}
           </div>
-          {runs.length < total && (
-            <div className="mt-3 flex justify-center">
-              <Button onClick={() => void more()} busy={loadingMore}>
-                Load more ({total - runs.length} left)
+          {pages > 1 && (
+            <nav className="mt-3 flex items-center justify-center gap-1" aria-label="Pages">
+              <Button size="sm" variant="ghost" icon={<ChevronLeft className="size-3.5" />} onClick={() => setPage(page - 1)} disabled={page === 1}>
+                Previous
               </Button>
-            </div>
+              {pageNumbers.map((n, index) => (
+                <span key={n} className="flex items-center">
+                  {index > 0 && n - pageNumbers[index - 1]! > 1 && <span className="px-1 text-[12px] text-ink-faint">…</span>}
+                  <button type="button" onClick={() => setPage(n)} className={cx("min-w-8 rounded-md px-2 py-1 text-[12px] transition", n === page ? "bg-accent text-accent-ink" : "text-ink-dim hover:bg-panel-2 hover:text-ink")} aria-current={n === page ? "page" : undefined}>
+                    {n}
+                  </button>
+                </span>
+              ))}
+              <Button size="sm" variant="ghost" onClick={() => setPage(page + 1)} disabled={page === pages}>
+                Next <ChevronRight className="size-3.5" />
+              </Button>
+            </nav>
           )}
         </>
       )}

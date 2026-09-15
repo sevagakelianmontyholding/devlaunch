@@ -77,11 +77,11 @@ export function LogFollower({ projectId, serverId, container, onClose, autoStart
             <option value="5000">last 5000 lines</option>
           </Select>
           {following ? (
-            <Button size="sm" variant="danger" icon={<Square className="size-3" fill="currentColor" />} onClick={() => void stop()}>
+            <Button size="sm" variant="danger" icon={<Square className="size-3" fill="currentColor" />} onClick={() => void stop()} className="shrink-0 whitespace-nowrap">
               Stop
             </Button>
           ) : (
-            <Button size="sm" variant="primary" icon={<Play className="size-3.5" />} onClick={() => void follow(Number(tail))} busy={busy}>
+            <Button size="sm" variant="primary" icon={<Play className="size-3.5" />} onClick={() => void follow(Number(tail))} busy={busy} className="shrink-0 whitespace-nowrap">
               {run ? "Follow again" : "Follow"}
             </Button>
           )}

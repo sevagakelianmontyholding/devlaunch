@@ -74,7 +74,7 @@ Buttons on each deployment:
 - **Deploy** — the full flow. Progress shows on the project page and on the project's card (build → upload with size, percent and speed → commands). A running deployment can be stopped.
 - **Run commands** — only the server commands, no build or upload. Use it after fixing a command, or to restart something on the server.
 - **Roll back** (image deployments) — the previous image is kept on the server as `<image>:previous` before each upload; rollback re-tags it and runs your commands.
-- **History** — the last ten runs with status, kind, duration, and who ran them; click one to read its log.
+- **History** — the last 200 runs with status, kind, duration, and who ran them; click one to read its log.
 
 Image deployments can also carry **build-time variables** (`NAME=value` lines passed to `docker build` as build arguments) for values that frameworks bake into the bundle, such as `NEXT_PUBLIC_*` in Next.js; the deploy log warns when the Dockerfile declares such an `ARG` without a value. Keep secrets out of them, since build arguments end up in the image. Extras per deployment: an optional **health check URL** (polled from this Mac after the commands finish, for up to the time you set; the run only succeeds once it answers) with optional **automatic rollback** for image deployments (re-tags the previous image, reruns your commands, checks again, and reports the run as failed either way); an optional **environment file** (stored encrypted on this Mac, written to the server before your commands) and a **clean git tree check** that refuses to deploy uncommitted or un-pulled code unless you choose "Deploy anyway".
 
@@ -160,7 +160,7 @@ The `data/` folder (database and SSH keys) is left in place; delete it yourself 
 
 ## Where things are stored
 
-- `data/devlaunch.sqlite` — account, projects, servers, deployments, and the last ten runs per deployment
+- `data/devlaunch.sqlite` — account, projects, servers, deployments, and the last 200 runs per deployment
 - `data/keys/` — server private keys, owner-only permissions
 
 Both are git-ignored and never leave the Mac.

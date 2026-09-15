@@ -74,7 +74,7 @@ function summary(run: RunRow | DeployRun): DeployRunSummary {
 
 export function listRuns(deploymentId: string): DeployRunSummary[] {
   const active = [...activeRuns.values()].filter(({ run }) => run.deploymentId === deploymentId && run.status === "running").map(({ run }) => summary(run));
-  const rows = db().prepare("SELECT * FROM deploy_runs WHERE deployment_id = ? ORDER BY started_at DESC LIMIT 10").all(deploymentId) as RunRow[];
+  const rows = db().prepare("SELECT * FROM deploy_runs WHERE deployment_id = ? ORDER BY started_at DESC LIMIT 200").all(deploymentId) as RunRow[];
   return [...active, ...rows.filter((row) => !active.some((item) => item.id === row.id)).map(summary)];
 }
 
@@ -346,7 +346,7 @@ function persist(run: DeployRun) {
   database
     .prepare(
       `DELETE FROM deploy_runs WHERE deployment_id = ? AND id NOT IN (
-         SELECT id FROM deploy_runs WHERE deployment_id = ? ORDER BY started_at DESC LIMIT 10
+         SELECT id FROM deploy_runs WHERE deployment_id = ? ORDER BY started_at DESC LIMIT 200
        )`,
     )
     .run(run.deploymentId, run.deploymentId);

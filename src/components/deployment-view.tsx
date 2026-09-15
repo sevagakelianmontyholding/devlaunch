@@ -247,7 +247,7 @@ export function DeploymentView({ id }: { id: string }) {
           </Card>
 
           <Card>
-            <CardTitle icon={<History className="size-4" />} aside={<span className="text-[11px] text-ink-faint">last {runs?.length ?? 0}</span>}>
+            <CardTitle icon={<History className="size-4" />} aside={<span className="text-[11px] text-ink-faint">{runs?.length ?? 0} run{runs?.length === 1 ? "" : "s"}</span>}>
               History
             </CardTitle>
             {runs === null ? (

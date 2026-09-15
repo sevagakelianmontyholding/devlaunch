@@ -27,7 +27,7 @@ export function getDashboard(): DashboardData {
        LEFT JOIN servers s ON s.id = d.server_id
        LEFT JOIN projects p ON p.id = r.project_id
        WHERE r.status != 'running'
-       ORDER BY r.started_at DESC LIMIT 8`,
+       ORDER BY r.started_at DESC LIMIT 15`,
     )
     .all() as RecentRow[];
   const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();

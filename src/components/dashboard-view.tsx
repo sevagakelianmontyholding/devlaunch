@@ -163,7 +163,16 @@ export function DashboardView() {
 
       <div className="mt-3 grid gap-3 grid-cols-1 lg:grid-cols-3">
         <Card className="min-w-0 lg:col-span-2">
-          <CardTitle icon={<Rocket className="size-4" />}>Recent deployments</CardTitle>
+          <CardTitle
+            icon={<Rocket className="size-4" />}
+            aside={
+              <Link href="/deployments" className="flex items-center gap-1 text-[11px] text-ink-dim hover:text-accent">
+                All deployments <ArrowRight className="size-3" />
+              </Link>
+            }
+          >
+            Recent deployments
+          </CardTitle>
           {!data ? (
             <p className="text-[12px] text-ink-faint">Loading…</p>
           ) : data.recentRuns.length === 0 ? (

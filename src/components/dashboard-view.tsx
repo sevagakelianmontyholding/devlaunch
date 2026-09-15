@@ -125,6 +125,7 @@ export function DashboardView() {
         <Stat href="/projects" icon={<FolderKanban className="size-4" />} label="Projects" value={projects.length} detail={`${running.length} running locally`} />
         <Stat href="/services" icon={<Boxes className="size-4" />} label="Containers" value={runningContainers} detail={status.dockerAvailable ? `${containers.length - runningContainers} stopped · Docker ready` : "Docker is not running"} tone={status.dockerAvailable ? undefined : "warn"} />
         <Stat
+          href="/deployments"
           icon={<Rocket className="size-4" />}
           label="Deploys · 7 days"
           value={weekTotal}

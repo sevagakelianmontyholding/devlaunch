@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Boxes, FolderKanban, LayoutDashboard, LogOut, Server, Settings, UserRound, Workflow, Zap } from "lucide-react";
+import { Boxes, FolderKanban, LayoutDashboard, LogOut, Rocket, Server, Settings, UserRound, Workflow, Zap } from "lucide-react";
 import { CommandPalette } from "./command-palette";
 import { logout } from "@/actions";
 import type { ReactNode } from "react";
@@ -21,6 +21,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const nav = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard, count: null, active: pathname === "/" },
     { href: "/projects", label: "Projects", icon: FolderKanban, count: status.projects.length, active: pathname.startsWith("/projects") },
+    { href: "/deployments", label: "Deployments", short: "Deploys", icon: Rocket, count: Object.values(status.deployments).flat().length, active: pathname.startsWith("/deployments") },
     { href: "/services", label: "Services", icon: Boxes, count: runningContainers, active: pathname === "/services" },
     { href: "/servers", label: "Servers", icon: Server, count: null, active: pathname === "/servers" },
     { href: "/pipelines", label: "Pipelines", icon: Workflow, count: null, active: pathname === "/pipelines" },
@@ -106,7 +107,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {nav.map((item) => (
           <Link key={item.href} href={item.href} className={cx("flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] transition", item.active ? "text-accent" : "text-ink-dim")}>
             <item.icon className="size-5" />
-            {item.label}
+            {"short" in item && item.short ? item.short : item.label}
           </Link>
         ))}
       </nav>

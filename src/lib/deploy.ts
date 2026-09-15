@@ -27,6 +27,7 @@ type Row = {
   project_id: string;
   server_id: string;
   server_name: string;
+  project_name: string;
   name: string;
   mode: DeployMode;
   image_name: string | null;
@@ -93,6 +94,7 @@ function fromRow(row: Row): Deployment {
     projectId: row.project_id,
     serverId: row.server_id,
     serverName: row.server_name,
+    projectName: row.project_name,
     name: row.name,
     mode: row.mode,
     imageName: row.image_name,
@@ -116,7 +118,7 @@ function fromRow(row: Row): Deployment {
 }
 
 const selectDeployment = `
-  SELECT deployments.*, servers.name AS server_name
+  SELECT deployments.*, servers.name AS server_name, projects.name AS project_name
   FROM deployments
   JOIN servers ON servers.id = deployments.server_id
   JOIN projects ON projects.id = deployments.project_id AND projects.deleted_at IS NULL
@@ -127,6 +129,17 @@ export function listDeployments(projectId: string): Deployment[] {
     .prepare(`${selectDeployment} WHERE deployments.project_id = ? ORDER BY deployments.name COLLATE NOCASE`)
     .all(projectId) as Row[];
   return rows.map(fromRow);
+}
+
+export function listAllDeployments(): Deployment[] {
+  const rows = db()
+    .prepare(`${selectDeployment} ORDER BY projects.name COLLATE NOCASE, deployments.name COLLATE NOCASE`)
+    .all() as Row[];
+  return rows.map(fromRow);
+}
+
+export function getDeployment(id: string): Deployment {
+  return fromRow(getRow(id));
 }
 
 export function deploymentSummariesByProject() {

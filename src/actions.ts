@@ -2,7 +2,7 @@
 
 import { changePassword, createFirstUser, requireUser, setDeployPin, signIn, signOut, verifyDeployPin } from "@/lib/auth";
 import { getDashboard as loadDashboard } from "@/lib/dashboard";
-import { cancelRun, createDeployment, deleteDeployment, listDeployments, listRuns, startRun, updateDeployment } from "@/lib/deploy";
+import { cancelRun, createDeployment, deleteDeployment, getDeployment as loadDeployment, listAllDeployments, listDeployments, listRuns, startRun, updateDeployment } from "@/lib/deploy";
 import { getNotificationSettings, saveNotificationSettings, sendTestNotification } from "@/lib/notify";
 import { activePipelineRunsById, deletePipeline, listPipelines, savePipeline, startPipeline } from "@/lib/pipelines";
 import { openInEditor, openInTerminal, startAction } from "@/lib/docker";
@@ -225,6 +225,20 @@ export async function checkServer(id: string): Promise<ActionResult<string>> {
 }
 
 // Deployments
+export async function getAllDeployments(): Promise<Deployment[]> {
+  await requireUser();
+  return listAllDeployments();
+}
+
+export async function getDeployment(id: string): Promise<Deployment | null> {
+  await requireUser();
+  try {
+    return loadDeployment(id);
+  } catch {
+    return null;
+  }
+}
+
 export async function getDeployments(projectId: string): Promise<Deployment[]> {
   await requireUser();
   return listDeployments(projectId);

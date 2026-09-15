@@ -34,6 +34,7 @@ export function CommandPalette() {
     const list: Item[] = [
       { id: "page:dashboard", label: "Go to Dashboard", icon: <LayoutDashboard className="size-4" />, run: () => navigate("/") },
       { id: "page:projects", label: "Go to Projects", icon: <FolderKanban className="size-4" />, run: () => navigate("/projects") },
+      { id: "page:deployments", label: "Go to Deployments", icon: <Rocket className="size-4" />, run: () => navigate("/deployments") },
       { id: "page:services", label: "Go to Services", icon: <Boxes className="size-4" />, run: () => navigate("/services") },
       { id: "page:servers", label: "Go to Servers", icon: <Server className="size-4" />, run: () => navigate("/servers") },
       { id: "page:pipelines", label: "Go to Pipelines", icon: <Workflow className="size-4" />, run: () => navigate("/pipelines") },
@@ -72,8 +73,8 @@ export function CommandPalette() {
           },
         });
       }
-      if ((status.deployments[project.id] ?? []).length > 0) {
-        list.push({ id: `deploy:${project.id}`, label: `Deploy ${project.name}`, hint: "Opens the project", icon: <Rocket className="size-4 text-accent" />, run: () => navigate(`/projects/${project.id}`) });
+      for (const deployment of status.deployments[project.id] ?? []) {
+        list.push({ id: `deploy:${deployment.id}`, label: `${deployment.name} · ${project.name}`, hint: `Deployment → ${deployment.serverName}`, icon: <Rocket className="size-4 text-accent" />, run: () => navigate(`/deployments/${deployment.id}`) });
       }
     }
     const needle = query.trim().toLowerCase();

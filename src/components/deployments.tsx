@@ -11,7 +11,7 @@ import { LockStrip, foreignLocks } from "./projects-view";
 import { Button, Card, CardTitle, Confirm, Dialog, Dot, ErrorNote, Field, IconButton, Input, Select, Spinner, Textarea, cx } from "./ui";
 import { formatBytes } from "@/lib/format";
 
-function runTone(run: DeployRunSummary | null) {
+export function runTone(run: DeployRunSummary | null) {
   if (!run) return { tone: "muted" as const, label: "Never deployed" };
   return {
     running: { tone: "warn" as const, label: "Deploying…" },
@@ -167,7 +167,9 @@ export function Deployments({ projectId }: { projectId: string }) {
               <div key={deployment.id} className="rounded-lg border border-line bg-bg p-4">
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
                   <Dot tone={state.tone} pulse={state.tone === "warn"} />
-                  <span className="text-[14px] font-semibold">{deployment.name}</span>
+                  <Link href={`/deployments/${deployment.id}`} className="text-[14px] font-semibold hover:text-accent">
+                    {deployment.name}
+                  </Link>
                   <span className="rounded-md border border-line px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-ink-dim">{deployment.mode === "image" ? "Image push" : "Commands"}</span>
                   <span className="flex items-center gap-1 text-[11px] text-ink-dim">
                     <Server className="size-3" /> {deployment.serverName}
@@ -333,7 +335,7 @@ export function Deployments({ projectId }: { projectId: string }) {
   );
 }
 
-function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { projectId: string; deployment: Deployment | null; onClose: () => void; onSaved: () => void }) {
+export function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { projectId: string; deployment: Deployment | null; onClose: () => void; onSaved: () => void }) {
   const { status } = useStatus();
   const [servers, setServers] = useState<DeployServer[] | null>(null);
   const [name, setName] = useState(deployment?.name ?? "");

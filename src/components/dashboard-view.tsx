@@ -414,7 +414,7 @@ function ActivePipelineRow({ name, run }: { name: string; run: PipelineRun }) {
 function RecentRunRow({ run }: { run: RecentRun }) {
   const state = runStatus[run.status];
   return (
-    <Link href={`/projects/${run.projectId}`} className="flex items-center gap-3 py-2.5 text-[12px] transition first:pt-0 last:pb-0 hover:text-accent">
+    <Link href={`/deployments/${run.deploymentId}`} className="flex items-center gap-3 py-2.5 text-[12px] transition first:pt-0 last:pb-0 hover:text-accent">
       <Dot tone={state.tone} />
       <div className="min-w-0 flex-1">
         <p className="truncate">

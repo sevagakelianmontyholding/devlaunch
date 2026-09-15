@@ -215,6 +215,7 @@ export type Deployment = {
   projectId: string;
   serverId: string;
   serverName: string;
+  projectName: string;
   name: string;
   mode: DeployMode;
   imageName: string | null;

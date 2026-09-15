@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, ChevronUp, Cpu, FolderKanban, HardDrive, KeyRound, Lock, Pencil, Plus, RefreshCw, Server, TerminalSquare, Trash2, Wifi } from "lucide-react";
+import { ChevronDown, ChevronUp, Cpu, FolderKanban, HardDrive, KeyRound, Lock, Pencil, Plus, RefreshCw, ScrollText, Server, TerminalSquare, Trash2, Wifi } from "lucide-react";
+import { LogFollower } from "./server-logs-card";
 import { useCallback, useEffect, useState } from "react";
 import { checkServer, getServerHealth, getServers, openServerTerminal, removeServer, saveServer } from "@/actions";
 import type { Server as DeployServer, ServerHealth } from "@/lib/types";
@@ -19,6 +20,7 @@ export function ServersView() {
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ id: string; ok: boolean; text: string } | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [logsFor, setLogsFor] = useState<{ serverId: string; container: string } | null>(null);
   const toggle = (id: string) =>
     setExpanded((current) => {
       const next = new Set(current);
@@ -177,13 +179,25 @@ export function ServersView() {
                     <div className="mt-1 max-h-48 divide-y divide-line overflow-y-auto pr-1">
                       {info.containers.length === 0 && <p className="py-1.5 text-[11px] text-ink-faint">No running containers.</p>}
                       {info.containers.map((container) => (
-                        <div key={container.name} className="flex items-center gap-2 py-1.5 text-[11px]">
+                        <div key={container.name} className="flex items-center gap-2 py-1 text-[11px]">
                           <Dot tone="success" />
                           <span className="truncate font-mono">{container.name}</span>
                           <span className="ml-auto truncate text-ink-faint">{container.status}</span>
+                          <IconButton
+                            label={`Follow logs of ${container.name}`}
+                            className={cx("size-6 shrink-0", logsFor?.serverId === server.id && logsFor.container === container.name && "text-accent")}
+                            onClick={() => setLogsFor(logsFor?.serverId === server.id && logsFor.container === container.name ? null : { serverId: server.id, container: container.name })}
+                          >
+                            <ScrollText className="size-3" />
+                          </IconButton>
                         </div>
                       ))}
                     </div>
+                    {logsFor?.serverId === server.id && (
+                      <div className="mt-3 border-t border-line pt-3">
+                        <LogFollower key={logsFor.container} projectId={null} serverId={server.id} container={logsFor.container} onClose={() => setLogsFor(null)} />
+                      </div>
+                    )}
                   </>
                 )}
                 {open && info && !info.reachable && (

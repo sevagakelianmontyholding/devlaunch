@@ -13,7 +13,6 @@ import { useNavigate } from "./navigate";
 import { LockStrip, foreignLocks } from "./projects-view";
 import { useStatus } from "./status-provider";
 import { TerminalView } from "./terminal-view";
-import { ServerLogsCard } from "./server-logs-card";
 import { Button, Card, CardTitle, Confirm, Dialog, Dot, Empty, IconButton, Spinner, cx } from "./ui";
 
 const kindLabel = { deploy: "Deploy", commands: "Commands", rollback: "Rollback" } as const;
@@ -208,6 +207,10 @@ export function DeploymentView({ id }: { id: string }) {
           <Server className="size-3" /> {deployment.serverName}
         </span>
         <span className="rounded-md border border-line px-1.5 py-0.5 text-[10px] uppercase tracking-wider">{deployment.mode === "image" ? "Image push" : "Commands"}</span>
+        <span>·</span>
+        <Link href={`/projects/${deployment.projectId}#server-logs`} className="hover:text-accent">
+          Server logs
+        </Link>
       </div>
 
       {locks.map((held) => (
@@ -249,8 +252,6 @@ export function DeploymentView({ id }: { id: string }) {
             </CardTitle>
             {watched ? <TerminalView text={watched.log || "Waiting for output…"} rows={24} /> : <p className="text-[12px] text-ink-faint">No runs yet. Press Deploy to ship this deployment.</p>}
           </Card>
-
-          <ServerLogsCard projectId={deployment.projectId} serverId={deployment.serverId} serverName={deployment.serverName} hint={deployment.imageName?.split("/").pop()?.split(":")[0] ?? deployment.projectId} />
 
           <Card>
             <CardTitle icon={<History className="size-4" />} aside={<span className="text-[11px] text-ink-faint">{runs?.length ?? 0} run{runs?.length === 1 ? "" : "s"}</span>}>

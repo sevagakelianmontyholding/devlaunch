@@ -86,7 +86,7 @@ export function startAction(id: string, action: ComposeAction): LocalRun {
 
 // One tracked local run per project at a time, executed by the user's login
 // shell so it gets the same PATH, nvm, git credentials and aliases a terminal has.
-export function launchRun(project: Project, action: LocalAction, command: string, cwd: string, timeoutMs: number, intro: string, label: string | null = null, options: { pty?: boolean; background?: boolean } = {}): LocalRun {
+export function launchRun(project: Pick<Project, "id">, action: LocalAction, command: string, cwd: string, timeoutMs: number, intro: string, label: string | null = null, options: { pty?: boolean; background?: boolean } = {}): LocalRun {
   if (!options.background && Object.values(activeActionsByProject()).some((active) => active.runId && localRuns.get(active.runId)?.projectId === project.id)) {
     throw new UserError("Another command is still running for this project");
   }

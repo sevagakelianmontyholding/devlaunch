@@ -1,4 +1,5 @@
 import path from "node:path";
+import { dataDir } from "./db";
 import { launchRun } from "./docker";
 import { getProject } from "./projects";
 import { getServerRow, keyPath, writeKey } from "./servers";
@@ -23,8 +24,9 @@ export async function listServerContainers(serverId: string): Promise<ServerCont
 // Follows a container's logs over SSH as a background run: it streams to the
 // terminal panel, can be stopped, and does not block the project's other
 // commands. It ends by itself after an hour.
-export async function followServerLogs(projectId: string, serverId: string, container: string, tail: number): Promise<LocalRun> {
-  const project = getProject(projectId);
+export async function followServerLogs(projectId: string | null, serverId: string, container: string, tail: number): Promise<LocalRun> {
+  // From the Servers page there is no project; the run is filed under the server instead.
+  const project = projectId ? getProject(projectId) : { id: `server:${serverId}`, path: dataDir };
   if (!project) throw new UserError("Project not found");
   if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(container)) throw new UserError("Choose a container");
   const lines = Math.min(Math.max(Math.round(tail) || 200, 10), 5000);

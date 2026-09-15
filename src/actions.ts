@@ -155,7 +155,7 @@ export async function getServerContainers(serverId: string): Promise<ActionResul
   return attempt(() => listServerContainers(serverId));
 }
 
-export async function followLogs(projectId: string, serverId: string, container: string, tail: number): Promise<ActionResult<LocalRun>> {
+export async function followLogs(projectId: string | null, serverId: string, container: string, tail: number): Promise<ActionResult<LocalRun>> {
   return attempt(() => followServerLogs(projectId, serverId, container, tail));
 }
 

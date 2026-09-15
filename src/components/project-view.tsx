@@ -11,6 +11,7 @@ import { NotesCard } from "./notes-card";
 import { useNavigate } from "./navigate";
 import { ProjectDialog } from "./project-dialog";
 import { ReposCard } from "./repos-card";
+import { ServerLogsCard } from "./server-logs-card";
 import { TerminalView } from "./terminal-view";
 import { ActionsCard } from "./actions-card";
 import { LiveStatus } from "./projects-view";
@@ -216,6 +217,17 @@ export function ProjectView({ id }: { id: string }) {
           <ActionsCard project={project} actions={status.actions[project.id] ?? []} />
           <ReposCard project={project} repos={status.repos[project.id] ?? []} />
           <Deployments projectId={project.id} />
+
+          {[...new Map((status.deployments[project.id] ?? []).map((deployment) => [deployment.serverId, deployment])).values()].map((deployment) => (
+            <ServerLogsCard
+              key={deployment.serverId}
+              id="server-logs"
+              projectId={project.id}
+              serverId={deployment.serverId}
+              serverName={deployment.serverName}
+              hint={project.id}
+            />
+          ))}
 
           <Card>
             <CardTitle icon={<Boxes className="size-4" />} aside={<span className="text-[11px] text-ink-faint">{runtime?.containers.length ?? 0}</span>}>

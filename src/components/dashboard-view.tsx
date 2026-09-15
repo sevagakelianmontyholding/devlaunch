@@ -166,7 +166,7 @@ export function DashboardView() {
           <CardTitle
             icon={<Rocket className="size-4" />}
             aside={
-              <Link href="/deployments?view=history" className="flex items-center gap-1 text-[11px] text-ink-dim hover:text-accent">
+              <Link href="/deployments" className="flex items-center gap-1 text-[11px] text-ink-dim hover:text-accent">
                 Full history <ArrowRight className="size-3" />
               </Link>
             }

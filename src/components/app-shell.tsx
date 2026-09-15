@@ -21,7 +21,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const nav = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard, count: null, active: pathname === "/" },
     { href: "/projects", label: "Projects", icon: FolderKanban, count: status.projects.length, active: pathname.startsWith("/projects") },
-    { href: "/deployments", label: "Deployments", short: "Deploys", icon: Rocket, count: Object.values(status.deployments).flat().length, active: pathname.startsWith("/deployments") },
+    { href: "/deployments", label: "Deployments", short: "Deploys", icon: Rocket, count: null, active: pathname.startsWith("/deployments") },
     { href: "/services", label: "Services", icon: Boxes, count: runningContainers, active: pathname === "/services" },
     { href: "/servers", label: "Servers", icon: Server, count: null, active: pathname === "/servers" },
     { href: "/pipelines", label: "Pipelines", icon: Workflow, count: null, active: pathname === "/pipelines" },

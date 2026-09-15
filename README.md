@@ -67,7 +67,7 @@ Keys are stored in `data/keys/` with owner-only permissions and are used solely 
 
 The commands are always yours — one per line, executed in order inside the project directory on the server, stopping at the first failure. Nothing runs automatically.
 
-The **Deployments** page lists every deployment across projects, and its **Run history** view lists every run (successful, failed or cancelled) with filters by result and project; clicking one opens its own page with the full run history, the log of any run, its settings, and the same Deploy / Run commands / Roll back buttons.
+The **Deployments** page is the run history: every run across all projects (successful, failed or cancelled) with filters by result and project; clicking one opens the deployment's own page with the full run history, the log of any run, its settings, and the same Deploy / Run commands / Roll back buttons.
 
 Buttons on each deployment:
 

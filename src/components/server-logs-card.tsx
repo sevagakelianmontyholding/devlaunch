@@ -1,7 +1,7 @@
 "use client";
 
 import { Play, RefreshCw, ScrollText, Square, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { followLogs, getServerContainers, stopAction } from "@/actions";
 import type { LocalRun, ServerContainer } from "@/lib/types";
 import { useStatus } from "./status-provider";
@@ -16,6 +16,11 @@ export function LogFollower({ projectId, serverId, container, onClose, autoStart
   const [run, setRun] = useState<LocalRun | null>(null);
   const [busy, setBusy] = useState(false);
   const following = run?.status === "running";
+  // The unmount cleanup below runs once, so it reads the latest run from a ref.
+  const runRef = useRef<LocalRun | null>(null);
+  useEffect(() => {
+    runRef.current = run;
+  }, [run]);
 
   const follow = useCallback(async (lines: number) => {
     setBusy(true);
@@ -35,9 +40,9 @@ export function LogFollower({ projectId, serverId, container, onClose, autoStart
   // Stop the stream when the panel goes away.
   useEffect(() => {
     return () => {
-      if (run?.status === "running") void stopAction(run.id);
+      const current = runRef.current;
+      if (current?.status === "running") void stopAction(current.id);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

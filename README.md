@@ -74,6 +74,7 @@ Buttons on each deployment:
 - **Deploy** — the full flow. Progress shows on the project page and on the project's card (build → upload with size, percent and speed → commands). A running deployment can be stopped.
 - **Run commands** — only the server commands, no build or upload. Use it after fixing a command, or to restart something on the server.
 - **Roll back** (image deployments) — the previous image is kept on the server as `<image>:previous` before each upload; rollback re-tags it and runs your commands.
+- **Server logs** — on a deployment's page, pick a container on that server and follow its logs live (`docker logs -f`), with the last 200, 1000 or 5000 lines first. Stop it when done; it ends by itself after an hour.
 - **History** — the last 200 runs with status, kind, duration, and who ran them; click one to read its log.
 
 Image deployments can also carry **build-time variables** (`NAME=value` lines passed to `docker build` as build arguments) for values that frameworks bake into the bundle, such as `NEXT_PUBLIC_*` in Next.js; the deploy log warns when the Dockerfile declares such an `ARG` without a value. Keep secrets out of them, since build arguments end up in the image. Extras per deployment: an optional **health check URL** (polled from this Mac after the commands finish, for up to the time you set; the run only succeeds once it answers) with optional **automatic rollback** for image deployments (re-tags the previous image, reruns your commands, checks again, and reports the run as failed either way); an optional **environment file** (stored encrypted on this Mac, written to the server before your commands) and a **clean git tree check** that refuses to deploy uncommitted or un-pulled code unless you choose "Deploy anyway".
@@ -158,6 +159,10 @@ npm run service:uninstall
 ```
 
 The `data/` folder (database and SSH keys) is left in place; delete it yourself if you want a clean slate.
+
+## Backups
+
+DevLaunch copies its database into `data/backups/` once a day (kept 30 days) using SQLite's online backup, so the copy is consistent even during a deploy. **Settings → Backups** lists them with **Back up now** and **Restore**; a restore takes a safety copy of the current database first, then restarts the service. SSH keys and the encryption secret are not part of the backup because they never change; copy `data/keys/` and `data/secret.key` by hand when moving to another Mac.
 
 ## Where things are stored
 

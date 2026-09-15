@@ -55,6 +55,7 @@ export type LocalRun = {
   projectId: string;
   action: LocalAction;
   label: string | null;
+  background: boolean;
   command: string;
   status: RunStatus;
   log: string;
@@ -401,3 +402,7 @@ export type TrashedProject = {
   expiresAt: string;
   deployments: number;
 };
+
+export type BackupInfo = { file: string; size: number; createdAt: string; reason: string };
+
+export type ServerContainer = { name: string; image: string; status: string; running: boolean };

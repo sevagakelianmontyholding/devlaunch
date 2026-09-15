@@ -8,6 +8,8 @@ import { activePipelineRunsById, deletePipeline, listPipelines, savePipeline, st
 import { openInEditor, openInTerminal, startAction } from "@/lib/docker";
 import { startGitRun } from "@/lib/git";
 import { chooseIcon, clearIcon, refreshIcon } from "@/lib/icons";
+import { createBackup, deleteBackup, listBackups, restoreBackup } from "@/lib/backups";
+import { followServerLogs, listServerContainers } from "@/lib/serverlogs";
 import { checkSite } from "@/lib/uptime";
 import { enablePhoneAccess as setPhoneAccess, phoneAccess } from "@/lib/phone";
 import { connectVpn as startVpn, disconnectVpn as stopVpn, forgetVpn, getVpnSettings as loadVpnSettings, saveVpnCredentials, saveVpnProfile } from "@/lib/vpn";
@@ -22,6 +24,8 @@ import { createServer, deleteServer, listServers, openServerTerminal as openSsh,
 import { UserError } from "@/lib/shell";
 import type {
   ActionResult,
+  BackupInfo,
+  ServerContainer,
   ComposeAction,
   DashboardData,
   DeployRun,
@@ -120,6 +124,39 @@ export async function purgeTrashedProject(id: string): Promise<ActionResult<Proj
 
 export async function pickProjectFolder(): Promise<ActionResult<string>> {
   return attempt(() => pickFolder());
+}
+
+// Backups
+export async function getBackups(): Promise<BackupInfo[]> {
+  await requireUser();
+  return listBackups();
+}
+
+export async function backupNow(): Promise<ActionResult<BackupInfo>> {
+  return attempt(() => createBackup("manual"));
+}
+
+export async function removeBackup(file: string): Promise<ActionResult> {
+  return attempt(() => {
+    deleteBackup(file);
+    return undefined;
+  });
+}
+
+export async function restoreFromBackup(file: string): Promise<ActionResult> {
+  return attempt(async () => {
+    await restoreBackup(file);
+    return undefined;
+  });
+}
+
+// Server logs
+export async function getServerContainers(serverId: string): Promise<ActionResult<ServerContainer[]>> {
+  return attempt(() => listServerContainers(serverId));
+}
+
+export async function followLogs(projectId: string, serverId: string, container: string, tail: number): Promise<ActionResult<LocalRun>> {
+  return attempt(() => followServerLogs(projectId, serverId, container, tail));
 }
 
 // Project icons

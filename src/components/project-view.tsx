@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, Boxes, Code2, ExternalLink, FlaskConical, FolderOpen, Globe2, Hammer, LayoutTemplate, Link2, Pencil, Power, RefreshCw, RotateCw, TerminalSquare, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { checkLiveSite, openProject, openProjectTerminal, removeProject, runCompose } from "@/actions";
+import { checkLiveSite, chooseProjectIcon, openProject, openProjectTerminal, refreshProjectIcon, removeProject, removeProjectIcon, runCompose } from "@/actions";
 import type { ComposeAction, LocalRun } from "@/lib/types";
 import { Deployments } from "./deployments";
 import { LogsPanel } from "./logs-panel";
@@ -117,7 +117,7 @@ export function ProjectView({ id }: { id: string }) {
       </Link>
 
       <div className="flex flex-wrap items-center gap-4">
-        <Monogram name={project.name} size="lg" />
+        <Monogram name={project.name} size="lg" icon={project.icon} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h1 className="truncate text-[20px] font-semibold tracking-tight">{project.name}</h1>
@@ -293,7 +293,51 @@ export function ProjectView({ id }: { id: string }) {
               <Row label="Added">
                 <span>{new Date(project.createdAt).toLocaleDateString()}</span>
               </Row>
+              <Row label="Icon">
+                <span>{{ local: "from the project folder", live: "from the live site", custom: "chosen file", none: "initials (none found)" }[project.iconSource ?? ""] ?? "not looked up yet"}</span>
+              </Row>
             </dl>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <Button
+                size="sm"
+                variant="ghost"
+                busy={busy === "icon"}
+                onClick={async () => {
+                  setBusy("icon");
+                  const result = await refreshProjectIcon(project.id);
+                  setBusy(null);
+                  if (!result.ok) return notify("error", result.error);
+                  notify(result.data ? "success" : "error", result.data ? `Icon found: ${result.data.from}` : "No icon found in the folder or on the live site");
+                  void refresh();
+                }}
+              >
+                Refresh icon
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={async () => {
+                  const result = await chooseProjectIcon(project.id);
+                  if (!result.ok) return notify("error", result.error);
+                  void refresh();
+                }}
+              >
+                Choose file…
+              </Button>
+              {project.icon && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={async () => {
+                    const result = await removeProjectIcon(project.id);
+                    if (!result.ok) return notify("error", result.error);
+                    void refresh();
+                  }}
+                >
+                  Use initials
+                </Button>
+              )}
+            </div>
           </Card>
         </div>
       </div>

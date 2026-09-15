@@ -15,6 +15,9 @@ export type Project = {
   commands: Record<ComposeAction, string | null>;
   repoPaths: string[];
   notes: string;
+  icon: string | null;
+  iconFile: string | null;
+  iconSource: string | null;
   createdAt: string;
   updatedAt: string;
 };

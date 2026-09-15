@@ -25,7 +25,7 @@ export function ServicesView() {
           {groups.map(({ project, runtime }) => (
             <Card key={project.id}>
               <div className="mb-3 flex items-center gap-2.5">
-                <Monogram name={project.name} size="sm" />
+                <Monogram name={project.name} size="sm" icon={project.icon} />
                 <Link href={`/projects/${project.id}`} className="text-[13px] font-semibold hover:text-accent">
                   {project.name}
                 </Link>

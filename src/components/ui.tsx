@@ -214,13 +214,20 @@ export function Spinner({ label }: { label?: string }) {
   );
 }
 
-export function Monogram({ name, size = "md" }: { name: string; size?: "sm" | "md" | "lg" }) {
+// The project's icon (favicon / app icon) on the tinted tile, or its initials.
+export function Monogram({ name, size = "md", icon }: { name: string; size?: "sm" | "md" | "lg"; icon?: string | null }) {
   const words = name.match(/[A-Za-z0-9]+/g) ?? [];
   const text = (words.length > 1 ? `${words[0]![0]}${words[1]![0]}` : name.slice(0, 2)).toUpperCase();
   const dims = { sm: "size-7 text-[10px]", md: "size-10 text-[12px]", lg: "size-12 text-[14px]" }[size];
+  const inset = { sm: "p-[3px]", md: "p-1", lg: "p-1.5" }[size];
   return (
-    <span className={cx("grid shrink-0 place-items-center rounded-lg border border-accent/20 bg-accent/10 font-semibold tracking-wider text-accent", dims)}>
-      {text}
+    <span className={cx("grid shrink-0 place-items-center overflow-hidden rounded-lg border border-accent/20 bg-accent/10 font-semibold tracking-wider text-accent", dims)}>
+      {icon ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={icon} alt="" className={cx("size-full object-contain", inset)} draggable={false} />
+      ) : (
+        text
+      )}
     </span>
   );
 }

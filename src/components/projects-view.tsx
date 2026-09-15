@@ -197,7 +197,7 @@ function ProjectCard({
       className="group flex min-w-0 cursor-pointer flex-col rounded-card border border-line bg-panel p-4 transition hover:border-line-strong hover:bg-panel-2"
     >
       <div className="flex items-start gap-3">
-        <Monogram name={project.name} />
+        <Monogram name={project.name} icon={project.icon} />
         <div className="min-w-0 flex-1">
           <Link href={`/projects/${project.id}`} className="block truncate text-[14px] font-semibold hover:text-accent">
             {project.name}

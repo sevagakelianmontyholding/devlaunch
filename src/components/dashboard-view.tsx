@@ -193,7 +193,7 @@ export function DashboardView() {
                 const deploy = status.activeDeploys[project.id];
                 return (
                   <div key={project.id} className="flex items-center gap-3 rounded-lg border border-line bg-bg px-3 py-2.5 transition hover:border-line-strong">
-                    <Monogram name={project.name} size="sm" />
+                    <Monogram name={project.name} size="sm" icon={project.icon} />
                     <div className="min-w-0 flex-1">
                       <Link href={`/projects/${project.id}`} className="block truncate text-[13px] font-medium hover:text-accent">
                         {project.name}

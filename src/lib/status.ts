@@ -7,6 +7,7 @@ import { repoStatuses } from "./git";
 import { actionsByProject } from "./project-actions";
 import { ensureLockMonitor, heldLocks } from "./locks";
 import { vpnStatus } from "./vpn";
+import { ensureIcons } from "./icons";
 import { activePipelineRunsById, ensureScheduler } from "./pipelines";
 import { getTerminalSettings } from "./terminal";
 import { ensureUptimeMonitor, uptimeByProject } from "./uptime";
@@ -75,6 +76,7 @@ export async function getStatus(user: SessionUser): Promise<Status> {
   ensureLockMonitor();
   purgeExpiredTrash();
   const projects = listProjects();
+  ensureIcons(projects);
   const docker = await dockerGroups();
   const [runtimes, repos] = await Promise.all([
     Promise.all(projects.map((project) => runtimeFor(project, docker.groups))),

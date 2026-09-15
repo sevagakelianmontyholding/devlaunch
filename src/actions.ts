@@ -7,6 +7,7 @@ import { getNotificationSettings, saveNotificationSettings, sendTestNotification
 import { activePipelineRunsById, deletePipeline, listPipelines, savePipeline, startPipeline } from "@/lib/pipelines";
 import { openInEditor, openInTerminal, startAction } from "@/lib/docker";
 import { startGitRun } from "@/lib/git";
+import { chooseIcon, clearIcon, refreshIcon } from "@/lib/icons";
 import { checkSite } from "@/lib/uptime";
 import { enablePhoneAccess as setPhoneAccess, phoneAccess } from "@/lib/phone";
 import { connectVpn as startVpn, disconnectVpn as stopVpn, forgetVpn, getVpnSettings as loadVpnSettings, saveVpnCredentials, saveVpnProfile } from "@/lib/vpn";
@@ -119,6 +120,31 @@ export async function purgeTrashedProject(id: string): Promise<ActionResult<Proj
 
 export async function pickProjectFolder(): Promise<ActionResult<string>> {
   return attempt(() => pickFolder());
+}
+
+// Project icons
+export async function refreshProjectIcon(id: string): Promise<ActionResult<{ source: string; from: string } | null>> {
+  return attempt(async () => {
+    const project = getProject(id);
+    if (!project) throw new UserError("Project not found");
+    return refreshIcon(project);
+  });
+}
+
+export async function chooseProjectIcon(id: string): Promise<ActionResult> {
+  return attempt(async () => {
+    const project = getProject(id);
+    if (!project) throw new UserError("Project not found");
+    await chooseIcon(project);
+    return undefined;
+  });
+}
+
+export async function removeProjectIcon(id: string): Promise<ActionResult> {
+  return attempt(() => {
+    clearIcon(id);
+    return undefined;
+  });
 }
 
 // Templates

@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { db, now } from "./db";
 import { run, UserError } from "./shell";
+import { iconFile, refreshIcon } from "./icons";
 import type { ComposeAction, Project, ProjectInput, Section, TrashedProject } from "./types";
 
 const actions: ComposeAction[] = ["start", "stop", "restart", "rebuild"];
@@ -23,6 +24,8 @@ type Row = {
   rebuild_command: string | null;
   repo_paths: string | null;
   notes: string | null;
+  icon_file: string | null;
+  icon_source: string | null;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
@@ -41,6 +44,12 @@ function fromRow(row: Row): Project {
     commands: { start: row.start_command, stop: row.stop_command, restart: row.restart_command, rebuild: row.rebuild_command },
     repoPaths: row.repo_paths ? (JSON.parse(row.repo_paths) as string[]) : [],
     notes: row.notes ?? "",
+    icon: (() => {
+      const file = iconFile(row.id, row.icon_file);
+      return file ? `/api/projects/${encodeURIComponent(row.id)}/icon?v=${file.version}` : null;
+    })(),
+    iconFile: row.icon_file,
+    iconSource: row.icon_source,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -48,6 +57,11 @@ function fromRow(row: Row): Project {
 
 export function listProjects(): Project[] {
   return (db().prepare("SELECT * FROM projects WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE").all() as Row[]).map(fromRow);
+}
+
+export function getProjectAny(id: string): Project | null {
+  const row = db().prepare("SELECT * FROM projects WHERE id = ?").get(id) as Row | undefined;
+  return row ? fromRow(row) : null;
 }
 
 export function getProject(id: string): Project | null {
@@ -192,7 +206,9 @@ export async function createProject(input: ProjectInput): Promise<Project> {
       createdAt: timestamp,
       updatedAt: timestamp,
     });
-  return getProject(id)!;
+  const created = getProject(id)!;
+  void refreshIcon(created).catch(() => undefined);
+  return created;
 }
 
 export async function updateProject(id: string, input: ProjectInput): Promise<Project> {

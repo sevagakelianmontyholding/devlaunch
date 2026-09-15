@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, HeartPulse, History, Pencil, Rocket, Server, Settings2, Square, TerminalSquare, Trash2, Undo2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { deploy, getDeployRuns, getDeployment, openServerTerminal, removeDeployment, stopDeploy } from "@/actions";
 import { formatBytes } from "@/lib/format";
 import type { DeployRun, DeployRunSummary, Deployment, RunKind } from "@/lib/types";
@@ -19,6 +20,7 @@ const kindLabel = { deploy: "Deploy", commands: "Commands", rollback: "Rollback"
 export function DeploymentView({ id }: { id: string }) {
   const { status, notify, refresh } = useStatus();
   const navigate = useNavigate();
+  const requestedRun = useSearchParams().get("run");
   const [deployment, setDeployment] = useState<Deployment | null | undefined>(undefined);
   const [runs, setRuns] = useState<DeployRunSummary[] | null>(null);
   const [watched, setWatched] = useState<DeployRun | null>(null);
@@ -31,8 +33,9 @@ export function DeploymentView({ id }: { id: string }) {
     const [item, history] = await Promise.all([getDeployment(id), getDeployRuns(id)]);
     setDeployment(item);
     setRuns(history);
-    // Follow a run already in progress; otherwise show the latest run's log.
-    const current = history[0];
+    // Follow a run already in progress; otherwise the requested run (from the
+    // history page) or the latest one.
+    const current = (requestedRun && history.find((run) => run.id === requestedRun)) || history[0];
     if (current) {
       setWatched((existing) => {
         if (existing && existing.status === "running") return existing;
@@ -43,7 +46,7 @@ export function DeploymentView({ id }: { id: string }) {
         return existing;
       });
     }
-  }, [id]);
+  }, [id, requestedRun]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);

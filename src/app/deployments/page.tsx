@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { DeploymentsIndex } from "@/components/deployments-index";
 
 export default function DeploymentsPage() {
-  return <DeploymentsIndex />;
+  return (
+    <Suspense>
+      <DeploymentsIndex />
+    </Suspense>
+  );
 }

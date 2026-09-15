@@ -1,7 +1,7 @@
 "use server";
 
 import { changePassword, createFirstUser, requireUser, setDeployPin, signIn, signOut, verifyDeployPin } from "@/lib/auth";
-import { getDashboard as loadDashboard } from "@/lib/dashboard";
+import { getDashboard as loadDashboard, listRunHistory, type RunFilter } from "@/lib/dashboard";
 import { cancelRun, createDeployment, deleteDeployment, getDeployment as loadDeployment, listAllDeployments, listDeployments, listRuns, startRun, updateDeployment } from "@/lib/deploy";
 import { getNotificationSettings, saveNotificationSettings, sendTestNotification } from "@/lib/notify";
 import { activePipelineRunsById, deletePipeline, listPipelines, savePipeline, startPipeline } from "@/lib/pipelines";
@@ -37,6 +37,7 @@ import type {
   ProjectAction,
   ProjectActionInput,
   ProjectTemplate,
+  RecentRun,
   RunKind,
   ServerHealth,
   ProjectInput,
@@ -201,6 +202,11 @@ export async function updateTerminalSettings(app: TerminalApp, customCommand: st
 }
 
 // Dashboard
+export async function getRunHistory(filter: RunFilter): Promise<{ runs: RecentRun[]; total: number }> {
+  await requireUser();
+  return listRunHistory(filter);
+}
+
 export async function getDashboard(): Promise<DashboardData> {
   await requireUser();
   return loadDashboard();

@@ -162,6 +162,64 @@ export function DashboardView() {
         )}
       </Card>
 
+      <Card className="mt-3">
+        <CardTitle
+          icon={<FolderKanban className="size-4" />}
+          aside={
+            <Link href="/projects" className="flex items-center gap-1 text-[11px] text-ink-dim hover:text-accent">
+              All projects <ArrowRight className="size-3" />
+            </Link>
+          }
+        >
+          Projects
+        </CardTitle>
+        {projects.length === 0 ? (
+          <p className="text-[12px] text-ink-faint">
+            No projects yet.{" "}
+            <button type="button" className="text-accent hover:underline" onClick={() => setAdding(true)}>
+              Add your first project
+            </button>
+            .
+          </p>
+        ) : (
+          <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+            {[...projects]
+              .sort((a, b) => Number(Boolean(runtimes[b.id]?.running)) - Number(Boolean(runtimes[a.id]?.running)) || a.name.localeCompare(b.name))
+              .map((project) => {
+                const runtime = runtimes[project.id];
+                const isRunning = Boolean(runtime?.running);
+                const canToggle = Boolean(project.composeFile || project.commands.start);
+                const active = status.activeActions[project.id];
+                const deploy = status.activeDeploys[project.id];
+                return (
+                  <div key={project.id} className="flex items-center gap-3 rounded-lg border border-line bg-bg px-3 py-2.5 transition hover:border-line-strong">
+                    <Monogram name={project.name} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <Link href={`/projects/${project.id}`} className="block truncate text-[13px] font-medium hover:text-accent">
+                        {project.name}
+                      </Link>
+                      <p className="flex items-center gap-1.5 text-[11px] text-ink-faint">
+                        <Dot tone={!runtime?.exists ? "danger" : deploy ? "accent" : active ? "warn" : isRunning ? "success" : "muted"} pulse={Boolean(deploy || active)} />
+                        {deploy ? "Deploying" : active ? actionRunning[active.action] : !runtime?.exists ? "Folder missing" : isRunning ? `${runtime.containers.filter((container) => container.state === "running").length} containers running` : canToggle ? "Stopped" : "No commands"}
+                      </p>
+                    </div>
+                    {canToggle && (
+                      <IconButton
+                        label={isRunning ? "Stop containers" : "Start containers"}
+                        onClick={() => void toggle(project.id, isRunning)}
+                        disabled={busyId === project.id || Boolean(active) || (!project.commands.start && !status.dockerAvailable)}
+                        className={cx("size-7", isRunning ? "text-success hover:text-danger" : "text-accent")}
+                      >
+                        <Power className={cx("size-3.5", (busyId === project.id || active) && "animate-pulse")} />
+                      </IconButton>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </Card>
+
       <div className="mt-3 grid gap-3 grid-cols-1 lg:grid-cols-3">
         <Card className="min-w-0 lg:col-span-2">
           <CardTitle
@@ -267,64 +325,6 @@ export function DashboardView() {
           </Card>
         </div>
       </div>
-
-      <Card className="mt-3">
-        <CardTitle
-          icon={<FolderKanban className="size-4" />}
-          aside={
-            <Link href="/projects" className="flex items-center gap-1 text-[11px] text-ink-dim hover:text-accent">
-              All projects <ArrowRight className="size-3" />
-            </Link>
-          }
-        >
-          Projects
-        </CardTitle>
-        {projects.length === 0 ? (
-          <p className="text-[12px] text-ink-faint">
-            No projects yet.{" "}
-            <button type="button" className="text-accent hover:underline" onClick={() => setAdding(true)}>
-              Add your first project
-            </button>
-            .
-          </p>
-        ) : (
-          <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
-            {[...projects]
-              .sort((a, b) => Number(Boolean(runtimes[b.id]?.running)) - Number(Boolean(runtimes[a.id]?.running)) || a.name.localeCompare(b.name))
-              .map((project) => {
-                const runtime = runtimes[project.id];
-                const isRunning = Boolean(runtime?.running);
-                const canToggle = Boolean(project.composeFile || project.commands.start);
-                const active = status.activeActions[project.id];
-                const deploy = status.activeDeploys[project.id];
-                return (
-                  <div key={project.id} className="flex items-center gap-3 rounded-lg border border-line bg-bg px-3 py-2.5 transition hover:border-line-strong">
-                    <Monogram name={project.name} size="sm" />
-                    <div className="min-w-0 flex-1">
-                      <Link href={`/projects/${project.id}`} className="block truncate text-[13px] font-medium hover:text-accent">
-                        {project.name}
-                      </Link>
-                      <p className="flex items-center gap-1.5 text-[11px] text-ink-faint">
-                        <Dot tone={!runtime?.exists ? "danger" : deploy ? "accent" : active ? "warn" : isRunning ? "success" : "muted"} pulse={Boolean(deploy || active)} />
-                        {deploy ? "Deploying" : active ? actionRunning[active.action] : !runtime?.exists ? "Folder missing" : isRunning ? `${runtime.containers.filter((container) => container.state === "running").length} containers running` : canToggle ? "Stopped" : "No commands"}
-                      </p>
-                    </div>
-                    {canToggle && (
-                      <IconButton
-                        label={isRunning ? "Stop containers" : "Start containers"}
-                        onClick={() => void toggle(project.id, isRunning)}
-                        disabled={busyId === project.id || Boolean(active) || (!project.commands.start && !status.dockerAvailable)}
-                        className={cx("size-7", isRunning ? "text-success hover:text-danger" : "text-accent")}
-                      >
-                        <Power className={cx("size-3.5", (busyId === project.id || active) && "animate-pulse")} />
-                      </IconButton>
-                    )}
-                  </div>
-                );
-              })}
-          </div>
-        )}
-      </Card>
 
       {adding && <ProjectDialog onClose={() => setAdding(false)} />}
     </div>

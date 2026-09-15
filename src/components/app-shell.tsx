@@ -29,8 +29,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   ];
 
   return (
-    <div className="min-h-screen overflow-x-hidden lg:flex">
-      <aside className="sticky top-0 z-30 border-b border-line bg-panel/95 px-3 pb-3 pt-[calc(12px+env(safe-area-inset-top))] backdrop-blur lg:static lg:z-auto lg:fixed lg:inset-y-0 lg:left-0 lg:flex lg:w-[224px] lg:flex-col lg:border-b-0 lg:border-r lg:bg-panel lg:py-4 lg:backdrop-blur-none">
+    <div className="min-h-screen lg:flex">
+      <aside className="sticky top-0 z-30 border-b border-line bg-panel/95 px-3 pb-3 pt-[calc(12px+env(safe-area-inset-top))] backdrop-blur lg:z-auto lg:flex lg:h-screen lg:w-[224px] lg:shrink-0 lg:flex-col lg:self-start lg:overflow-y-auto lg:border-b-0 lg:border-r lg:bg-panel lg:py-4 lg:backdrop-blur-none">
         <div className="flex items-center gap-2.5 px-2">
           <span className="grid size-7 place-items-center rounded-lg bg-[#0f2f2b]">
             <svg viewBox="0 0 64 64" className="size-5" aria-hidden="true">
@@ -98,8 +98,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <CommandPalette />
 
-      <main className="flex-1 pb-[calc(64px+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-[224px]">
-        <div className="mx-auto w-full max-w-[1180px] px-5 py-6 sm:px-8 sm:py-8">{children}</div>
+      <main className="min-w-0 flex-1 overflow-x-hidden pb-[calc(64px+env(safe-area-inset-bottom))] lg:pb-0">
+        <div className="w-full px-5 py-6 sm:px-8 sm:py-8">{children}</div>
       </main>
 
       {/* Phone and tablet: tab bar along the bottom, above the home indicator. */}

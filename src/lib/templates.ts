@@ -76,6 +76,7 @@ export function createTemplateFromProject(projectId: string, rawName: string): P
     healthUrl: abstract(deployment.healthUrl, vars),
     healthTimeout: deployment.healthTimeout,
     autoRollback: deployment.autoRollback,
+    buildArgs: abstract(deployment.buildArgs, vars),
   }));
   const id = randomUUID();
   db()
@@ -125,6 +126,7 @@ export function applyTemplateDeployments(projectId: string, template: ProjectTem
         healthUrl: fill(item.healthUrl ?? "", vars),
         healthTimeout: item.healthTimeout ?? 60,
         autoRollback: item.autoRollback ?? false,
+        buildArgs: fill(item.buildArgs ?? "", vars),
       });
       created += 1;
     } catch (error) {

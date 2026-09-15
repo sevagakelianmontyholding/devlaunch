@@ -346,6 +346,7 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
   const [platform, setPlatform] = useState(deployment?.platform ?? "");
   const [envPath, setEnvPath] = useState(deployment?.envPath ?? ".env");
   const [envContent, setEnvContent] = useState(deployment?.envContent ?? "");
+  const [buildArgs, setBuildArgs] = useState(deployment?.buildArgs ?? "");
   const [requireCleanGit, setRequireCleanGit] = useState(deployment?.requireCleanGit ?? true);
   const [healthUrl, setHealthUrl] = useState(deployment?.healthUrl ?? "");
   const [healthTimeout, setHealthTimeout] = useState(String(deployment?.healthTimeout ?? 60));
@@ -369,7 +370,7 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
     event.preventDefault();
     setSaving(true);
     setError(null);
-    const result = await saveDeployment(projectId, deployment?.id ?? null, { serverId, name, mode, imageName, imageTag, buildContext, dockerfile, remotePath, commands, platform, envPath, envContent, requireCleanGit, healthUrl, healthTimeout: Number(healthTimeout), autoRollback });
+    const result = await saveDeployment(projectId, deployment?.id ?? null, { serverId, name, mode, imageName, imageTag, buildContext, dockerfile, remotePath, commands, platform, envPath, envContent, buildArgs, requireCleanGit, healthUrl, healthTimeout: Number(healthTimeout), autoRollback });
     setSaving(false);
     if (!result.ok) return setError(result.error);
     onSaved();
@@ -453,9 +454,21 @@ function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { project
           />
         </Field>
 
+        {mode === "image" && (
+          <div className="rounded-lg border border-line bg-bg p-3">
+            <p className="text-[12px] font-medium">Build-time variables</p>
+            <p className="mt-1 text-[11px] leading-4 text-ink-dim">
+              Optional. Passed to <span className="font-mono">docker build</span> as build arguments for values that get baked into the bundle at build time (NEXT_PUBLIC_*, VITE_*, REACT_APP_*). Public values only: build arguments end up in the image. Secrets belong in the environment file below.
+            </p>
+            <Field label="Variables" hint="NAME=value, one per line" className="mt-3">
+              <Textarea value={buildArgs} onChange={(event) => setBuildArgs(event.target.value)} rows={4} spellCheck={false} placeholder={"NEXT_PUBLIC_API_URL=https://api.example.com\nNEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIza…"} className={mono} />
+            </Field>
+          </div>
+        )}
+
         <div className="rounded-lg border border-line bg-bg p-3">
           <p className="text-[12px] font-medium">Environment file</p>
-          <p className="mt-1 text-[11px] leading-4 text-ink-dim">Optional. Written to the server (relative to the project directory) before your commands run. Stored encrypted on this Mac.</p>
+          <p className="mt-1 text-[11px] leading-4 text-ink-dim">Optional. Written to the server (relative to the project directory) before your commands run, for values read when the container starts. Stored encrypted on this Mac.</p>
           <Field label="File path" className="mt-3">
             <Input value={envPath} onChange={(event) => setEnvPath(event.target.value)} placeholder=".env" className={mono} />
           </Field>

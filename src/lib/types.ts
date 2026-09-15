@@ -226,6 +226,7 @@ export type Deployment = {
   platform: string | null;
   envPath: string;
   envContent: string;
+  buildArgs: string;
   requireCleanGit: boolean;
   healthUrl: string;
   healthTimeout: number;
@@ -248,6 +249,7 @@ export type DeploymentInput = {
   platform: string;
   envPath: string;
   envContent: string;
+  buildArgs: string;
   requireCleanGit: boolean;
   healthUrl: string;
   healthTimeout: number;

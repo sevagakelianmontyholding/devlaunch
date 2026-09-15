@@ -1,6 +1,7 @@
 "use client";
 
-import { Cpu, HardDrive, KeyRound, Lock, Pencil, Plus, RefreshCw, Server, TerminalSquare, Trash2, Wifi } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, ChevronUp, Cpu, FolderKanban, HardDrive, KeyRound, Lock, Pencil, Plus, RefreshCw, Server, TerminalSquare, Trash2, Wifi } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { checkServer, getServerHealth, getServers, openServerTerminal, removeServer, saveServer } from "@/actions";
 import type { Server as DeployServer, ServerHealth } from "@/lib/types";
@@ -17,6 +18,23 @@ export function ServersView() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ id: string; ok: boolean; text: string } | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggle = (id: string) =>
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  // Which projects deploy to each server, from the status payload.
+  const deploymentsByServer = new Map<string, Array<{ projectId: string; projectName: string; deploymentId: string; deploymentName: string; mode: string }>>();
+  for (const project of status.projects) {
+    for (const deployment of status.deployments[project.id] ?? []) {
+      const list = deploymentsByServer.get(deployment.serverId) ?? [];
+      list.push({ projectId: project.id, projectName: project.name, deploymentId: deployment.id, deploymentName: deployment.name, mode: deployment.mode });
+      deploymentsByServer.set(deployment.serverId, list);
+    }
+  }
 
   const load = useCallback(async () => setServers(await getServers()), []);
   const loadHealth = useCallback(async () => {
@@ -71,23 +89,63 @@ export function ServersView() {
       ) : servers.length === 0 ? (
         <Empty icon={<Server className="size-4" />} title="No servers yet" hint="Add a VPS with its SSH key to enable deployments." action={<Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setEditing("new")}>Add server</Button>} />
       ) : (
-        <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+        <div className="grid gap-3 grid-cols-1 md:grid-cols-2 md:items-start">
           {servers.map((server) => {
             const info = health[server.id];
+            const open = expanded.has(server.id);
+            const onServer = deploymentsByServer.get(server.id) ?? [];
             return (
               <Card key={server.id} className="flex flex-col">
-                <div className="flex items-center gap-2">
-                  <Server className="size-4 text-accent" />
+                <button type="button" onClick={() => toggle(server.id)} className="flex w-full items-center gap-2 text-left" aria-expanded={open}>
+                  <Server className="size-4 shrink-0 text-accent" />
                   <span className="text-[13px] font-semibold">{server.name}</span>
                   {info && <Dot tone={info.reachable ? "success" : "danger"} />}
-                  <span className="ml-auto truncate font-mono text-[11px] text-ink-dim">
+                  <span className="ml-auto min-w-0 truncate font-mono text-[11px] text-ink-dim">
                     {server.username}@{server.host}:{server.port}
                   </span>
+                  {open ? <ChevronUp className="size-4 shrink-0 text-ink-faint" /> : <ChevronDown className="size-4 shrink-0 text-ink-faint" />}
+                </button>
+
+                {/* One-line summary; the details below open on demand. */}
+                <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-dim">
+                  {!info ? (
+                    <Spinner label="Checking over SSH…" />
+                  ) : info.reachable ? (
+                    <>
+                      <span className="flex items-center gap-1"><Cpu className="size-3" /> {info.arch ?? "?"}</span>
+                      <span>Docker {info.dockerVersion ?? "?"}</span>
+                      {info.disk && <span className={cx(info.disk.percent >= 90 ? "text-danger" : info.disk.percent >= 75 ? "text-warn" : "")}>disk {info.disk.percent}%</span>}
+                      <span>{info.containers.length} container{info.containers.length === 1 ? "" : "s"}</span>
+                      {info.lock && <span className="flex items-center gap-1 text-warn"><Lock className="size-3" /> deploy in progress</span>}
+                    </>
+                  ) : (
+                    <span className="text-danger">Unreachable{status.vpn.state === "disconnected" ? " — connect the office VPN" : ""}</span>
+                  )}
+                </p>
+
+                <div className="mt-3 border-t border-line pt-2">
+                  <p className="text-[11px] font-medium text-ink-dim">Projects on this server</p>
+                  {onServer.length === 0 ? (
+                    <p className="mt-1 text-[11px] text-ink-faint">No deployments target this server yet.</p>
+                  ) : (
+                    <ul className="mt-1 space-y-1">
+                      {onServer.map((item) => (
+                        <li key={item.deploymentId} className="flex items-center gap-2 text-[12px]">
+                          <FolderKanban className="size-3 shrink-0 text-ink-faint" />
+                          <Link href={`/projects/${item.projectId}`} className="font-medium hover:text-accent">
+                            {item.projectName}
+                          </Link>
+                          <Link href={`/deployments/${item.deploymentId}`} className="min-w-0 truncate text-ink-dim hover:text-accent">
+                            · {item.deploymentName}
+                          </Link>
+                          <span className="ml-auto shrink-0 rounded-md border border-line px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-ink-faint">{item.mode === "image" ? "image" : "commands"}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
 
-                {!info ? (
-                  <div className="mt-3"><Spinner label="Checking over SSH…" /></div>
-                ) : info.reachable ? (
+                {open && info && info.reachable && (
                   <>
                     {info.lock && (
                       <div className="mt-3 flex items-center gap-2 rounded-lg border border-warn/25 bg-warn/[0.07] px-3 py-2 text-[11px]">
@@ -98,9 +156,7 @@ export function ServersView() {
                         </span>
                       </div>
                     )}
-                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12px]">
-                      <div className="flex items-center gap-1.5 text-ink-dim"><Cpu className="size-3.5" /> {info.arch ?? "?"}</div>
-                      <div className="text-ink-dim">Docker {info.dockerVersion ?? "?"}</div>
+                    <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 border-t border-line pt-3 text-[12px]">
                       {info.disk && (
                         <div className="col-span-2">
                           <div className="flex items-center gap-1.5 text-ink-dim"><HardDrive className="size-3.5" /> Disk {info.disk.used} of {info.disk.total}
@@ -129,7 +185,8 @@ export function ServersView() {
                       ))}
                     </div>
                   </>
-                ) : (
+                )}
+                {open && info && !info.reachable && (
                   <p className="mt-2 text-[12px] text-danger">
                     {info.error}
                     {status.vpn.state === "disconnected" && <span className="block text-ink-dim">Not reachable from here — connect the office VPN (dashboard or Settings → VPN).</span>}

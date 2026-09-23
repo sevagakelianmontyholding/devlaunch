@@ -455,13 +455,16 @@ export function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { 
         </Field>
 
         <div className="rounded-lg border border-line bg-bg p-3">
-          <p className="text-[12px] font-medium">Environment file</p>
+          <p className="text-[12px] font-medium">Environment file on the server</p>
           <p className="mt-1 text-[11px] leading-4 text-ink-dim">
-            Lives on the server, inside the project directory. Everyone who deploys this project sees the same file: the container reads it when it starts, and image builds get its values too. View and edit it from the deployment page.
+            Not a file on this Mac: it is the .env that sits on the server, inside the project directory above. Everyone who deploys this project sees the same file. The container reads it when it starts, and image builds get its values too. View and edit it from the deployment page.
           </p>
-          <Field label="Path in the project directory" className="mt-3">
+          <Field label="Path on the server, relative to the project directory above" className="mt-3">
             <Input value={envPath} onChange={(event) => setEnvPath(event.target.value)} placeholder=".env" className={mono} />
           </Field>
+          <p className="mt-1.5 break-all font-mono text-[11px] text-ink-faint">
+            {servers?.find((server) => server.id === serverId)?.name ?? "server"}:{(remotePath.trim() || "<project directory>").replace(/\/$/, "")}/{envPath.trim().replace(/^\.\//, "") || ".env"}
+          </p>
         </div>
 
         <div className="rounded-lg border border-line bg-bg p-3">

@@ -309,8 +309,8 @@ export function DeploymentView({ id }: { id: string }) {
                   </Row>
                 </>
               )}
-              <Row label="Env file">
-                <span className="font-mono text-[11px]">{deployment.envPath}</span>
+              <Row label="Env file on the server">
+                <span className="break-all font-mono text-[11px]">{`${deployment.remotePath.replace(/\/$/, "")}/${deployment.envPath.replace(/^\.\//, "")}`}</span>
               </Row>
               <Row label="Health check">
                 <span className="flex items-center justify-end gap-1">

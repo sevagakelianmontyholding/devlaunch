@@ -33,20 +33,24 @@ export function parseEnvFile(text: string): EnvVar[] {
   return vars;
 }
 
-// Returns the Dockerfile with `ARG name` lines inserted after the FROM of
-// every stage that needs them. The last stage of a multi-stage Dockerfile is
-// the shipped image and usually only copies the build output, so it is left
-// alone unless it runs a build itself: an ARG declared there would record
-// the value in the image history. Parser directives (`# syntax=…`), heredoc
-// bodies and continued lines are left alone.
+// Returns the Dockerfile with `ARG name` lines added to every stage that
+// needs them. Within a stage the declarations go just before the first RUN
+// that looks like a build step (npm run build, nuxt generate, …), so earlier
+// layers such as `npm ci` keep their cache when a value changes; a stage
+// with no such step gets them before its last RUN, or after FROM. The last
+// stage of a multi-stage Dockerfile is the shipped image and usually only
+// copies the build output, so it is left alone unless it runs a build
+// itself: an ARG declared there would record the value in the image
+// history. Parser directives (`# syntax=…`), heredoc bodies and continued
+// lines are left alone.
 export function declareArgs(dockerfile: string, names: string[]): string {
   const unique = [...new Set(names.filter((name) => NAME.test(name)))];
   if (unique.length === 0) return dockerfile;
   const declaration = `# added by DevLaunch: environment file variables for this build\n${unique.map((name) => `ARG ${name}`).join("\n")}`;
 
-  // Split into stages, remembering where each FROM instruction ends.
-  type Stage = { lines: string[]; fromEnd: number | null };
-  const stages: Stage[] = [{ lines: [], fromEnd: null }];
+  // Split into stages; `at` is the index of the line each instruction starts on.
+  type Stage = { lines: string[]; fromEnd: number | null; runs: number[] };
+  const stages: Stage[] = [{ lines: [], fromEnd: null, runs: [] }];
   let heredoc: string | null = null;
   let continuation: "none" | "from" | "other" = "none";
   for (const line of dockerfile.replace(/\r\n/g, "\n").split("\n")) {
@@ -66,9 +70,10 @@ export function declareArgs(dockerfile: string, names: string[]): string {
     }
     const isFrom = /^\s*FROM\b/i.test(line);
     if (isFrom) {
-      stage = { lines: [], fromEnd: null };
+      stage = { lines: [], fromEnd: null, runs: [] };
       stages.push(stage);
     }
+    if (/^\s*RUN\b/i.test(line)) stage.runs.push(stage.lines.length);
     stage.lines.push(line);
     const opening = line.match(/<<-?\s*["']?([A-Za-z_][A-Za-z0-9_]*)["']?/);
     if (opening && /^\s*(RUN|COPY|ADD)\b/i.test(line)) {
@@ -83,16 +88,20 @@ export function declareArgs(dockerfile: string, names: string[]): string {
   }
 
   const real = stages.filter((stage) => stage.fromEnd !== null);
-  const runsBuild = (stage: Stage) => stage.lines.some((line) => /^\s*RUN\b/i.test(line) && /\bbuild\b/i.test(line));
+  const looksLikeBuild = (line: string) => /\b(build|generate|compile|export)\b/i.test(line);
   const out: string[] = [];
-  stages.forEach((stage) => {
+  for (const stage of stages) {
     const index = real.indexOf(stage);
     const last = index === real.length - 1;
-    const declare = index !== -1 && (real.length === 1 || !last || runsBuild(stage));
+    const buildRun = stage.runs.find((at) => looksLikeBuild(stage.lines[at]!));
+    const declare = index !== -1 && (real.length === 1 || !last || buildRun !== undefined);
+    // Insert before the build RUN, else before the last RUN, else after FROM.
+    const before = buildRun ?? stage.runs[stage.runs.length - 1] ?? stage.fromEnd ?? 0;
     stage.lines.forEach((line, i) => {
+      if (declare && i === before && before !== stage.fromEnd) out.push(declaration);
       out.push(line);
-      if (declare && i + 1 === stage.fromEnd) out.push(declaration);
+      if (declare && before === stage.fromEnd && i + 1 === stage.fromEnd) out.push(declaration);
     });
-  });
+  }
   return out.join("\n");
 }

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { db, keysDir, now } from "./db";
-import { shQuote, stream, UserError } from "./shell";
+import { UserError, run, shQuote, stream } from "./shell";
 import { openScriptInTerminal } from "./terminal";
 import type { DeployLock, Server, ServerHealth, ServerInput } from "./types";
 
@@ -215,4 +215,19 @@ export async function openServerTerminal(id: string, remotePath?: string | null)
     `exec ssh -i ${shQuote(keyPath(server.id))} -p ${server.port} -o StrictHostKeyChecking=accept-new -t ${shQuote(`${server.username}@${server.host}`)} ${shQuote(remote)}`,
   ].join("\n");
   await openScriptInTerminal(`ssh-${server.name}`, script);
+}
+
+// A text file on the server, for the deployment's environment file. null
+// when the file does not exist (an SSH failure throws).
+export async function readRemoteFile(server: ServerRow, target: string): Promise<string | null> {
+  await writeKey(server.id, server.private_key);
+  const marker = "__DEVLAUNCH_MISSING__";
+  const { stdout } = await run("ssh", [...sshArgs(server), `if [ -f ${shQuote(target)} ]; then cat ${shQuote(target)}; else echo ${marker}; fi`], { timeoutMs: 30_000 });
+  return stdout.trim() === marker ? null : stdout;
+}
+
+export async function writeRemoteFile(server: ServerRow, target: string, content: string) {
+  await writeKey(server.id, server.private_key);
+  const b64 = Buffer.from(content, "utf8").toString("base64");
+  await run("ssh", [...sshArgs(server), `mkdir -p $(dirname ${shQuote(target)}) && echo ${shQuote(b64)} | base64 -d > ${shQuote(target)} && chmod 600 ${shQuote(target)}`], { timeoutMs: 30_000 });
 }

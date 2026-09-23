@@ -58,7 +58,7 @@ export function createTemplateFromProject(projectId: string, rawName: string): P
     composeFile: abstract(project.composeFile ?? "", vars),
     commands: Object.fromEntries(actions.map((action) => [action, abstract(project.commands[action] ?? "", vars)])) as Record<ComposeAction, string>,
   };
-  // Env file contents are secrets and stay with the original deployment.
+  // The environment file lives on the server, so only its path is part of a template.
   const deployments: TemplateDeployment[] = listDeployments(projectId).map((deployment) => ({
     serverId: deployment.serverId,
     serverName: deployment.serverName,
@@ -72,12 +72,10 @@ export function createTemplateFromProject(projectId: string, rawName: string): P
     commands: abstract(deployment.commands, vars),
     platform: deployment.platform ?? "",
     envPath: abstract(deployment.envPath, vars),
-    envAtBuild: deployment.envAtBuild,
     requireCleanGit: deployment.requireCleanGit,
     healthUrl: abstract(deployment.healthUrl, vars),
     healthTimeout: deployment.healthTimeout,
     autoRollback: deployment.autoRollback,
-    buildArgs: abstract(deployment.buildArgs, vars),
   }));
   const id = randomUUID();
   db()
@@ -122,13 +120,10 @@ export function applyTemplateDeployments(projectId: string, template: ProjectTem
         commands: fill(item.commands, vars),
         platform: item.platform,
         envPath: fill(item.envPath, vars),
-        envContent: "",
-        envAtBuild: item.envAtBuild ?? true,
         requireCleanGit: item.requireCleanGit,
         healthUrl: fill(item.healthUrl ?? "", vars),
         healthTimeout: item.healthTimeout ?? 60,
         autoRollback: item.autoRollback ?? false,
-        buildArgs: fill(item.buildArgs ?? "", vars),
       });
       created += 1;
     } catch (error) {

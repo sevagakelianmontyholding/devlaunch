@@ -347,9 +347,6 @@ export function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { 
   const [dockerfile, setDockerfile] = useState(deployment?.dockerfile ?? "");
   const [platform, setPlatform] = useState(deployment?.platform ?? "");
   const [envPath, setEnvPath] = useState(deployment?.envPath ?? ".env");
-  const [envContent, setEnvContent] = useState(deployment?.envContent ?? "");
-  const [envAtBuild, setEnvAtBuild] = useState(deployment?.envAtBuild ?? true);
-  const [buildArgs, setBuildArgs] = useState(deployment?.buildArgs ?? "");
   const [requireCleanGit, setRequireCleanGit] = useState(deployment?.requireCleanGit ?? true);
   const [healthUrl, setHealthUrl] = useState(deployment?.healthUrl ?? "");
   const [healthTimeout, setHealthTimeout] = useState(String(deployment?.healthTimeout ?? 60));
@@ -373,7 +370,7 @@ export function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { 
     event.preventDefault();
     setSaving(true);
     setError(null);
-    const result = await saveDeployment(projectId, deployment?.id ?? null, { serverId, name, mode, imageName, imageTag, buildContext, dockerfile, remotePath, commands, platform, envPath, envContent, envAtBuild, buildArgs, requireCleanGit, healthUrl, healthTimeout: Number(healthTimeout), autoRollback });
+    const result = await saveDeployment(projectId, deployment?.id ?? null, { serverId, name, mode, imageName, imageTag, buildContext, dockerfile, remotePath, commands, platform, envPath, requireCleanGit, healthUrl, healthTimeout: Number(healthTimeout), autoRollback });
     setSaving(false);
     if (!result.ok) return setError(result.error);
     onSaved();
@@ -460,38 +457,12 @@ export function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { 
         <div className="rounded-lg border border-line bg-bg p-3">
           <p className="text-[12px] font-medium">Environment file</p>
           <p className="mt-1 text-[11px] leading-4 text-ink-dim">
-            Optional. Written to the server (relative to the project directory) before your commands run, for values read when the container starts. Stored encrypted on this Mac.
+            Lives on the server, inside the project directory. Everyone who deploys this project sees the same file: the container reads it when it starts, and image builds get its values too. View and edit it from the deployment page.
           </p>
-          <Field label="File path" className="mt-3">
+          <Field label="Path in the project directory" className="mt-3">
             <Input value={envPath} onChange={(event) => setEnvPath(event.target.value)} placeholder=".env" className={mono} />
           </Field>
-          <Field label="Contents" className="mt-3">
-            <Textarea value={envContent} onChange={(event) => setEnvContent(event.target.value)} rows={5} spellCheck={false} placeholder={"NODE_ENV=production\nAPI_URL=https://api.example.com"} className={mono} />
-          </Field>
-          {mode === "image" && (
-            <label className="mt-3 flex cursor-pointer items-start gap-2 text-[12px]">
-              <input type="checkbox" checked={envAtBuild} onChange={(event) => setEnvAtBuild(event.target.checked)} className="mt-0.5 accent-[#2dd4bf]" />
-              <span>
-                <span className="font-medium">Also use these variables when building the image</span>
-                <span className="mt-0.5 block text-[11px] leading-4 text-ink-dim">
-                  Like building on the server with the file in the folder: values your framework bakes in at build time (NEXT_PUBLIC_*, VITE_*, REACT_APP_*, …) come from this file, with no ARG lines needed in the Dockerfile — DevLaunch declares them in a temporary copy. If the contents above are empty, the file already at this path on the server is used. Secrets stay in the build stage and, with a multi-stage Dockerfile, never reach the shipped image.
-                </span>
-              </span>
-            </label>
-          )}
         </div>
-
-        {mode === "image" && (
-          <div className="rounded-lg border border-line bg-bg p-3">
-            <p className="text-[12px] font-medium">Extra build-time variables</p>
-            <p className="mt-1 text-[11px] leading-4 text-ink-dim">
-              Optional. Values that only the build needs and that are not in the environment file. Passed to <span className="font-mono">docker build</span> as build arguments; they override the file if a name appears in both. Public values only: build arguments end up in the image.
-            </p>
-            <Field label="Variables" hint="NAME=value, one per line" className="mt-3">
-              <Textarea value={buildArgs} onChange={(event) => setBuildArgs(event.target.value)} rows={3} spellCheck={false} placeholder={"NEXT_PUBLIC_BUILD_ID=2024.09"} className={mono} />
-            </Field>
-          </div>
-        )}
 
         <div className="rounded-lg border border-line bg-bg p-3">
           <p className="text-[12px] font-medium">Health check</p>

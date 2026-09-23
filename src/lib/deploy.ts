@@ -6,14 +6,13 @@ import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createGzip } from "node:zlib";
 import { db, now } from "./db";
-import { decrypt, encrypt } from "./crypto";
 import { declareArgs, parseEnvFile } from "./dockerfile";
 import { notifyFinished } from "./notify";
 import { formatBytes } from "./format";
 import { gitProblems } from "./git";
 import { rememberLock } from "./locks";
 import { getProject } from "./projects";
-import { getServerRow, parseLock, sshArgs, writeKey, type ServerRow } from "./servers";
+import { getServerRow, parseLock, readRemoteFile, sshArgs, writeKey, type ServerRow } from "./servers";
 import { killProcessGroup, newControl, run, shQuote, spawnTracked, stream, UserError, waitForExit, type ProcessControl } from "./shell";
 import type { ActiveDeploy, DeployLock, DeployMode, DeployRun, DeployRunSummary, Deployment, DeploymentInput, DeploymentSummary, RunKind, UploadProgress } from "./types";
 
@@ -39,9 +38,6 @@ type Row = {
   commands: string;
   platform: string | null;
   env_path: string | null;
-  env_encrypted: string | null;
-  build_args_encrypted: string | null;
-  env_at_build: string | null;
   require_clean_git: string | null;
   health_url: string | null;
   health_timeout: string | null;
@@ -107,9 +103,6 @@ function fromRow(row: Row): Deployment {
     commands: row.commands,
     platform: row.platform,
     envPath: row.env_path ?? ".env",
-    envContent: row.env_encrypted ? decrypt(row.env_encrypted) : "",
-    buildArgs: row.build_args_encrypted ? decrypt(row.build_args_encrypted) : "",
-    envAtBuild: row.env_at_build === "1",
     requireCleanGit: row.require_clean_git !== "0",
     healthUrl: row.health_url ?? "",
     healthTimeout: Number(row.health_timeout) || 60,
@@ -162,13 +155,6 @@ function getRow(id: string) {
   return row;
 }
 
-export function buildArgLines(text: string) {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("#"));
-}
-
 // Names declared with ARG in a Dockerfile, for the build-time variable
 // warnings; null when the file cannot be read.
 async function dockerfileArgs(file: string) {
@@ -207,13 +193,6 @@ function validate(input: DeploymentInput) {
   if (platform && !SAFE_PLATFORM.test(platform)) throw new UserError("Choose a supported target platform");
   const envPath = input.envPath.trim() || ".env";
   if (!SAFE_RELATIVE.test(envPath) || envPath.includes("..")) throw new UserError("The env file path must be relative to the project directory");
-  const envContent = input.envContent.replace(/\r\n/g, "\n");
-  if (envContent.length > 64_000) throw new UserError("The env file is too large");
-  const buildArgs = (input.buildArgs ?? "").replace(/\r\n/g, "\n").trim();
-  if (buildArgs.length > 16_000) throw new UserError("The build-time variables are too long");
-  for (const line of buildArgLines(buildArgs)) {
-    if (!/^[A-Za-z_][A-Za-z0-9_]*=/.test(line)) throw new UserError(`Build-time variables must be NAME=value lines; check "${line.slice(0, 40)}"`);
-  }
   const healthUrl = input.healthUrl.trim();
   if (healthUrl && !/^https?:\/\/\S+$/.test(healthUrl)) throw new UserError("The health check URL must start with http:// or https://");
   const healthTimeout = Math.round(Number(input.healthTimeout) || 60);
@@ -225,7 +204,7 @@ function validate(input: DeploymentInput) {
     if (buildContext && !SAFE_RELATIVE.test(buildContext)) throw new UserError("The build context must be a relative folder");
     if (dockerfile && !SAFE_RELATIVE.test(dockerfile)) throw new UserError("The Dockerfile must be a relative path");
   }
-  return { name, mode: input.mode, remotePath, commands, imageName, imageTag, buildContext, dockerfile, platform, envPath, envContent, envAtBuild: Boolean(input.envAtBuild), buildArgs, requireCleanGit: input.requireCleanGit, healthUrl, healthTimeout, autoRollback };
+  return { name, mode: input.mode, remotePath, commands, imageName, imageTag, buildContext, dockerfile, platform, envPath, requireCleanGit: input.requireCleanGit, healthUrl, healthTimeout, autoRollback };
 }
 
 export function createDeployment(projectId: string, input: DeploymentInput): Deployment {
@@ -236,8 +215,8 @@ export function createDeployment(projectId: string, input: DeploymentInput): Dep
   const timestamp = now();
   db()
     .prepare(
-      `INSERT INTO deployments (id, project_id, server_id, name, mode, image_name, image_tag, build_context, dockerfile, remote_path, commands, platform, env_path, env_encrypted, build_args_encrypted, env_at_build, require_clean_git, health_url, health_timeout, auto_rollback, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO deployments (id, project_id, server_id, name, mode, image_name, image_tag, build_context, dockerfile, remote_path, commands, platform, env_path, require_clean_git, health_url, health_timeout, auto_rollback, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -253,9 +232,6 @@ export function createDeployment(projectId: string, input: DeploymentInput): Dep
       deployment.commands,
       deployment.platform,
       deployment.envPath,
-      deployment.envContent ? encrypt(deployment.envContent) : null,
-      deployment.buildArgs ? encrypt(deployment.buildArgs) : null,
-      deployment.envAtBuild ? "1" : "0",
       deployment.requireCleanGit ? "1" : "0",
       deployment.healthUrl || null,
       String(deployment.healthTimeout),
@@ -273,7 +249,7 @@ export function updateDeployment(id: string, input: DeploymentInput): Deployment
   db()
     .prepare(
       `UPDATE deployments SET server_id = ?, name = ?, mode = ?, image_name = ?, image_tag = ?, build_context = ?,
-       dockerfile = ?, remote_path = ?, commands = ?, platform = ?, env_path = ?, env_encrypted = ?, build_args_encrypted = ?, env_at_build = ?, require_clean_git = ?,
+       dockerfile = ?, remote_path = ?, commands = ?, platform = ?, env_path = ?, require_clean_git = ?,
        health_url = ?, health_timeout = ?, auto_rollback = ?, updated_at = ? WHERE id = ?`,
     )
     .run(
@@ -288,9 +264,6 @@ export function updateDeployment(id: string, input: DeploymentInput): Deployment
       deployment.commands,
       deployment.platform,
       deployment.envPath,
-      deployment.envContent ? encrypt(deployment.envContent) : null,
-      deployment.buildArgs ? encrypt(deployment.buildArgs) : null,
-      deployment.envAtBuild ? "1" : "0",
       deployment.requireCleanGit ? "1" : "0",
       deployment.healthUrl || null,
       String(deployment.healthTimeout),
@@ -490,58 +463,34 @@ async function execute(run: DeployRun, config: Row, server: ServerRow, projectPa
     const platform = config.platform ?? (await detectPlatform(server, control));
     const args = ["build", "--platform", platform, "-t", image];
     const dockerfile = config.dockerfile ? await resolveDockerfile(projectPath, context, config.dockerfile) : path.join(context, "Dockerfile");
-    // Extra build-time variables typed in the deployment go in as --build-arg.
-    const buildArgs = buildArgLines(config.build_args_encrypted ? decrypt(config.build_args_encrypted) : "");
-    const supplied = new Set(buildArgs.map((line) => line.slice(0, line.indexOf("="))));
-    // With "use the env file when building", every variable of the env file
-    // is also handed to the build, and DevLaunch declares the ARGs itself in
-    // a copy of the Dockerfile so no ARG lines are needed in the project.
-    // Extra variables typed above win over the file.
-    let generated: string | null = null;
+    // The environment file on the server is handed to the build too, the way
+    // a build on the server sees a .env lying in the folder. Docker only
+    // honours build arguments the Dockerfile declares, so DevLaunch declares
+    // them in a temporary copy of the Dockerfile (build stages only).
+    const envPath = config.env_path || ".env";
+    const envText = await readRemoteFile(server, `${config.remote_path.replace(/\/$/, "")}/${envPath}`);
     const fromEnv: string[] = [];
-    if (config.env_at_build === "1") {
-      const envPath = config.env_path || ".env";
-      let text = config.env_encrypted ? decrypt(config.env_encrypted) : "";
-      let source = `the environment file in DevLaunch (${envPath})`;
-      if (!text.trim()) {
-        // Nothing stored here: use the file already on the server, if any.
-        const target = `${config.remote_path.replace(/\/$/, "")}/${envPath}`;
-        source = `${envPath} on ${server.name}`;
-        try {
-          text = await run_("ssh", [...sshArgs(server), `cat ${shQuote(target)}`]);
-        } catch {
-          log(`  ⚠ No environment file stored in DevLaunch and ${target} could not be read on ${server.name} — building without it\n`);
-        }
-      }
-      for (const { name, value } of parseEnvFile(text)) {
-        if (supplied.has(name)) continue;
+    let generated: string | null = null;
+    if (envText !== null) {
+      for (const { name, value } of parseEnvFile(envText)) {
         fromEnv.push(name);
         args.push("--build-arg", `${name}=${value}`);
       }
       if (fromEnv.length > 0) {
         generated = path.join(tmpdir(), `devlaunch-${run.id}.Dockerfile`);
         await writeFile(generated, declareArgs(await readFile(dockerfile, "utf8"), fromEnv), { mode: 0o600 });
-        log(`  environment file variables available to the build from ${source}: ${fromEnv.join(", ")}\n`);
       }
     }
-    for (const line of buildArgs) args.push("--build-arg", line);
     if (generated || config.dockerfile) args.push("-f", generated ?? dockerfile);
     args.push(context);
 
     run.phase = "building";
     step(`Building ${image} for ${platform}${config.platform ? "" : " (detected on the server)"}`);
-    if (supplied.size > 0) log(`  build-time variables: ${[...supplied].join(", ")}\n`);
-    const declared = await dockerfileArgs(dockerfile);
-    for (const name of declared ?? []) {
-      if (!supplied.has(name) && !fromEnv.includes(name) && /^(NEXT_PUBLIC_|VITE_|REACT_APP_|NUXT_PUBLIC_|PUBLIC_)/.test(name)) {
-        log(`  ⚠ Dockerfile declares ARG ${name} but no value was given — it will be empty in the bundle\n`);
-      }
-    }
-    // The opposite trap: a --build-arg that no ARG line consumes is silently
-    // dropped by Docker, so the value never reaches the build at all.
-    if (declared) {
-      for (const name of supplied) {
-        if (!declared.includes(name)) log(`  ⚠ ${name} is not declared with ARG in the Dockerfile — Docker ignores it, so it never reaches the build. Tick "use the env file when building" to have DevLaunch declare it.\n`);
+    if (envText === null) log(`  no ${envPath} on ${server.name} yet — building without environment variables\n`);
+    else if (fromEnv.length > 0) log(`  variables from ${envPath} on ${server.name} available to the build: ${fromEnv.join(", ")}\n`);
+    for (const name of (await dockerfileArgs(dockerfile)) ?? []) {
+      if (!fromEnv.includes(name) && /^(NEXT_PUBLIC_|VITE_|REACT_APP_|NUXT_PUBLIC_|PUBLIC_)/.test(name)) {
+        log(`  ⚠ Dockerfile declares ARG ${name} but ${envPath} on ${server.name} does not set it — it will be empty in the bundle\n`);
       }
     }
     try {
@@ -569,15 +518,6 @@ async function execute(run: DeployRun, config: Row, server: ServerRow, projectPa
     await stream("ssh", [...sshArgs(server), `docker image inspect ${shQuote(previous)} >/dev/null 2>&1 && docker tag ${shQuote(previous)} ${shQuote(image)} || { echo 'No previous image on the server yet'; exit 1; }`], { timeoutMs: 30_000, onOutput: log, control });
   };
   if (kind === "rollback") await retagPrevious();
-  if (config.env_encrypted) {
-    const envPath = config.env_path || ".env";
-    step(`Writing ${envPath} on ${server.name}`);
-    const content = decrypt(config.env_encrypted);
-    const target = `${config.remote_path.replace(/\/$/, "")}/${envPath}`;
-    const b64 = Buffer.from(content, "utf8").toString("base64");
-    await stream("ssh", [...sshArgs(server), `mkdir -p $(dirname ${shQuote(target)}) && echo ${shQuote(b64)} | base64 -d > ${shQuote(target)} && chmod 600 ${shQuote(target)}`], { timeoutMs: 30_000, onOutput: log, control });
-  }
-
   const lines = commandLines(config.commands);
   const remote = `cd ${shQuote(config.remote_path)} && ${lines.join(" && ")}`;
   const runCommands = async () => {

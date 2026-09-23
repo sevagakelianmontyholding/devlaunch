@@ -1,19 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, HeartPulse, History, Pencil, Rocket, Server, Settings2, Square, TerminalSquare, Trash2, Undo2 } from "lucide-react";
+import { ArrowLeft, Eye, FileKey2, HeartPulse, History, Pencil, RefreshCw, Rocket, Server, Settings2, Square, TerminalSquare, Trash2, Undo2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { deploy, getDeployRuns, getDeployment, openServerTerminal, removeDeployment, stopDeploy } from "@/actions";
+import { deploy, getDeployRuns, getDeployment, getEnvFile, openServerTerminal, removeDeployment, saveEnvFile, stopDeploy } from "@/actions";
 import { formatBytes } from "@/lib/format";
-import type { DeployRun, DeployRunSummary, Deployment, RunKind } from "@/lib/types";
+import { parseEnvFile } from "@/lib/dockerfile";
+import type { DeployRun, DeployRunSummary, Deployment, EnvFile, RunKind } from "@/lib/types";
 import { PageHeader } from "./app-shell";
 import { DeploymentDialog, PinPrompt, runTone } from "./deployments";
 import { useNavigate } from "./navigate";
 import { LockStrip, foreignLocks } from "./projects-view";
 import { useStatus } from "./status-provider";
 import { TerminalView } from "./terminal-view";
-import { Button, Card, CardTitle, Confirm, Dialog, Dot, Empty, IconButton, Spinner, cx } from "./ui";
+import { Button, Card, CardTitle, Confirm, Dialog, Dot, Empty, IconButton, Spinner, Textarea, cx } from "./ui";
 
 const kindLabel = { deploy: "Deploy", commands: "Commands", rollback: "Rollback" } as const;
 
@@ -141,8 +142,6 @@ export function DeploymentView({ id }: { id: string }) {
   const upload = watched?.status === "running" ? watched.upload : null;
   const locks = foreignLocks(status.locks, [deployment], status.activeDeploys);
   const commands = deployment.commands.split("\n").map((line) => line.trim()).filter((line) => line && !line.startsWith("#"));
-  const envCount = deployment.envContent.split("\n").filter((line) => line.trim() && !line.trim().startsWith("#")).length;
-  const buildArgNames = deployment.buildArgs.split("\n").map((line) => line.trim()).filter((line) => line && !line.startsWith("#")).map((line) => line.slice(0, line.indexOf("=")));
 
   return (
     <div className="fade-up">
@@ -285,6 +284,7 @@ export function DeploymentView({ id }: { id: string }) {
         </div>
 
         <div className="min-w-0 space-y-4">
+          <EnvFileCard key={`${deployment.serverId}:${deployment.remotePath}:${deployment.envPath}`} deployment={deployment} />
           <Card>
             <CardTitle icon={<Settings2 className="size-4" />}>Settings</CardTitle>
             <dl className="space-y-2 text-[12px]">
@@ -307,16 +307,10 @@ export function DeploymentView({ id }: { id: string }) {
                   <Row label="Platform">
                     <span>{deployment.platform || "detected from the server"}</span>
                   </Row>
-                  <Row label="Extra build variables">
-                    <span className="font-mono text-[11px]">{buildArgNames.length ? buildArgNames.join(", ") : "—"}</span>
-                  </Row>
                 </>
               )}
               <Row label="Env file">
-                <span>
-                  {envCount ? `${deployment.envPath} · ${envCount} variable${envCount === 1 ? "" : "s"}` : deployment.envAtBuild && deployment.mode === "image" ? `${deployment.envPath} on the server` : "—"}
-                  {deployment.envAtBuild && deployment.mode === "image" && (envCount ? " · also at build" : " · at build")}
-                </span>
+                <span className="font-mono text-[11px]">{deployment.envPath}</span>
               </Row>
               <Row label="Health check">
                 <span className="flex items-center justify-end gap-1">
@@ -385,5 +379,104 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
       <dt className="shrink-0 text-ink-dim">{label}</dt>
       <dd className="w-0 flex-1 truncate text-right">{children}</dd>
     </div>
+  );
+}
+
+// The deployment's environment file, read from and written to the server so
+// everyone deploying the project works on the same file. Contents stay
+// hidden until asked for, since they usually hold secrets.
+function EnvFileCard({ deployment }: { deployment: Deployment }) {
+  const { notify } = useStatus();
+  const [file, setFile] = useState<EnvFile | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const target = `${deployment.remotePath.replace(/\/$/, "")}/${deployment.envPath}`;
+
+  const load = useCallback(async () => {
+    setFile(null);
+    setError(null);
+    const result = await getEnvFile(deployment.id);
+    if (!result.ok) return setError(result.error);
+    setFile(result.data);
+    setDraft(result.data.content);
+  }, [deployment.id]);
+  useEffect(() => {
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
+  }, [load]);
+
+  const save = async () => {
+    setSaving(true);
+    const result = await saveEnvFile(deployment.id, draft);
+    setSaving(false);
+    if (!result.ok) return notify("error", result.error);
+    setFile(result.data);
+    setDraft(result.data.content);
+    setEditing(false);
+    notify("success", `Saved ${deployment.envPath} on ${deployment.serverName}`);
+  };
+
+  const names = file ? parseEnvFile(file.content).map((item) => item.name) : [];
+  const dirty = file !== null && draft !== file.content;
+
+  return (
+    <Card>
+      <CardTitle
+        icon={<FileKey2 className="size-4" />}
+        aside={
+          <IconButton label="Reload from the server" onClick={() => void load()} disabled={file === null && !error}>
+            <RefreshCw className={cx("size-3.5", file === null && !error && "animate-spin")} />
+          </IconButton>
+        }
+      >
+        Environment file
+      </CardTitle>
+      <p className="mb-2 break-all font-mono text-[11px] text-ink-dim">
+        {deployment.serverName}:{target}
+      </p>
+      {error ? (
+        <p className="text-[12px] text-danger">{error}</p>
+      ) : file === null ? (
+        <Spinner label={`Reading from ${deployment.serverName}…`} />
+      ) : editing ? (
+        <>
+          <Textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={12} spellCheck={false} placeholder={"NODE_ENV=production\nAPI_URL=https://api.example.com"} className="font-mono text-[12px]" />
+          <div className="mt-2 flex items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setDraft(file.content);
+                setEditing(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={() => void save()} busy={saving} disabled={!dirty && file.exists}>
+              {file.exists ? "Save to server" : "Create on server"}
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          {!file.exists ? (
+            <p className="text-[12px] text-ink-faint">No {deployment.envPath} on {deployment.serverName} yet.</p>
+          ) : names.length === 0 ? (
+            <p className="text-[12px] text-ink-faint">The file is empty.</p>
+          ) : (
+            <p className="text-[12px]">
+              {names.length} variable{names.length === 1 ? "" : "s"}: <span className="font-mono text-[11px] text-ink-dim">{names.join(", ")}</span>
+            </p>
+          )}
+          <p className="mt-2 text-[11px] leading-4 text-ink-faint">
+            The container reads it when it starts{deployment.mode === "image" ? ", and image builds get its values too (no Dockerfile changes needed)" : ""}. Anyone deploying this project sees this same file.
+          </p>
+          <Button size="sm" variant="ghost" icon={<Eye className="size-3.5" />} onClick={() => setEditing(true)} className="mt-2">
+            {file.exists ? "Show and edit" : "Create"}
+          </Button>
+        </>
+      )}
+    </Card>
   );
 }

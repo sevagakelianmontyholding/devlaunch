@@ -128,7 +128,10 @@ export type TemplateProject = {
   commands: Record<ComposeAction, string>;
 };
 
-export type TemplateDeployment = Omit<DeploymentInput, "envContent"> & { serverName: string };
+export type TemplateDeployment = DeploymentInput & { serverName: string };
+
+// A deployment's environment file as found on the server.
+export type EnvFile = { path: string; exists: boolean; content: string };
 
 export type ProjectTemplate = {
   id: string;
@@ -230,9 +233,6 @@ export type Deployment = {
   commands: string;
   platform: string | null;
   envPath: string;
-  envContent: string;
-  envAtBuild: boolean;
-  buildArgs: string;
   requireCleanGit: boolean;
   healthUrl: string;
   healthTimeout: number;
@@ -254,9 +254,6 @@ export type DeploymentInput = {
   commands: string;
   platform: string;
   envPath: string;
-  envContent: string;
-  envAtBuild: boolean;
-  buildArgs: string;
   requireCleanGit: boolean;
   healthUrl: string;
   healthTimeout: number;

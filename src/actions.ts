@@ -1,6 +1,8 @@
 "use server";
 
 import { changePassword, createFirstUser, requireUser, setDeployPin, signIn, signOut, verifyDeployPin } from "@/lib/auth";
+import { readEnvFile, writeEnvFile } from "@/lib/envfile";
+import type { EnvFile } from "@/lib/types";
 import { getDashboard as loadDashboard, listRunHistory, type RunFilter } from "@/lib/dashboard";
 import { cancelRun, createDeployment, deleteDeployment, getDeployment as loadDeployment, listAllDeployments, listDeployments, listRuns, startRun, updateDeployment } from "@/lib/deploy";
 import { getNotificationSettings, saveNotificationSettings, sendTestNotification } from "@/lib/notify";
@@ -319,6 +321,15 @@ export async function saveDeployment(
   input: DeploymentInput,
 ): Promise<ActionResult<Deployment>> {
   return attempt(() => (id ? updateDeployment(id, input) : createDeployment(projectId, input)));
+}
+
+// The deployment's environment file, read from and written to the server.
+export async function getEnvFile(deploymentId: string): Promise<ActionResult<EnvFile>> {
+  return attempt(() => readEnvFile(deploymentId));
+}
+
+export async function saveEnvFile(deploymentId: string, content: string): Promise<ActionResult<EnvFile>> {
+  return attempt(() => writeEnvFile(deploymentId, content));
 }
 
 export async function removeDeployment(id: string): Promise<ActionResult<Deployment>> {

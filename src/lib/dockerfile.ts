@@ -12,9 +12,10 @@ const NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 export type EnvVar = { name: string; value: string };
 
-// Parses dotenv-style text: blank lines and comments are skipped, an
-// optional `export ` prefix is dropped, and matching surrounding quotes are
-// removed. Anything that is not NAME=value is ignored.
+// Parses dotenv-style text the way Docker Compose reads an env_file: blank
+// lines and comments are skipped, an optional `export ` prefix is dropped,
+// surrounding quotes are removed and an inline ` # comment` after an
+// unquoted value is cut off. Anything that is not NAME=value is ignored.
 export function parseEnvFile(text: string): EnvVar[] {
   const vars: EnvVar[] = [];
   for (const raw of text.replace(/\r\n/g, "\n").split("\n")) {
@@ -25,8 +26,15 @@ export function parseEnvFile(text: string): EnvVar[] {
     const name = line.slice(0, eq).trim().replace(/^export\s+/, "");
     if (!NAME.test(name)) continue;
     let value = line.slice(eq + 1).trim();
-    if (value.length >= 2 && ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))) {
-      value = value.slice(1, -1);
+    const quote = value[0] === '"' || value[0] === "'" ? value[0] : null;
+    if (quote) {
+      // Quoted: keep everything up to the closing quote; anything after it is a comment.
+      const close = value.indexOf(quote, 1);
+      value = close === -1 ? value.slice(1) : value.slice(1, close);
+    } else {
+      // Unquoted: an inline comment starts at " #", like Docker Compose and dotenv.
+      const hash = value.search(/\s#/);
+      if (hash !== -1) value = value.slice(0, hash).trimEnd();
     }
     vars.push({ name, value });
   }

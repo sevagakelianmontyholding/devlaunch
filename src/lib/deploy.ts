@@ -166,14 +166,15 @@ export function buildArgLines(text: string) {
     .filter((line) => line && !line.startsWith("#"));
 }
 
-// Names declared with ARG in a Dockerfile, for the unset-variable warning.
+// Names declared with ARG in a Dockerfile, for the build-time variable
+// warnings; null when the file cannot be read.
 async function dockerfileArgs(file: string) {
   try {
     const { readFile } = await import("node:fs/promises");
     const content = await readFile(file, "utf8");
     return [...content.matchAll(/^\s*ARG\s+([A-Za-z_][A-Za-z0-9_]*)/gm)].map((match) => match[1]!);
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -496,9 +497,17 @@ async function execute(run: DeployRun, config: Row, server: ServerRow, projectPa
     run.phase = "building";
     step(`Building ${image} for ${platform}${config.platform ? "" : " (detected on the server)"}`);
     if (supplied.size > 0) log(`  build-time variables: ${[...supplied].join(", ")}\n`);
-    for (const name of await dockerfileArgs(dockerfile)) {
+    const declared = await dockerfileArgs(dockerfile);
+    for (const name of declared ?? []) {
       if (!supplied.has(name) && /^(NEXT_PUBLIC_|VITE_|REACT_APP_|NUXT_PUBLIC_|PUBLIC_)/.test(name)) {
         log(`  ⚠ Dockerfile declares ARG ${name} but no build-time variable was given — it will be empty in the bundle\n`);
+      }
+    }
+    // The opposite trap: a --build-arg that no ARG line consumes is silently
+    // dropped by Docker, so the value never reaches the build at all.
+    if (declared) {
+      for (const name of supplied) {
+        if (!declared.includes(name)) log(`  ⚠ ${name} is not declared with ARG in the Dockerfile — Docker ignores it, so it never reaches the build\n`);
       }
     }
     await stream("docker", args, { cwd: projectPath, timeoutMs: 30 * 60_000, onOutput: log, control });

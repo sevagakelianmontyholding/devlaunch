@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, ChevronUp, HeartPulse, History, KeyRound, Pencil, Plus, Rocket, Server, Square, TerminalSquare, Trash2, Undo2 } from "lucide-react";
+import { ChevronDown, ChevronUp, FileKey2, HeartPulse, History, KeyRound, Pencil, Plus, Rocket, Server, Square, TerminalSquare, Trash2, Undo2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { deploy, getDeployRuns, getDeployments, getServers, openServerTerminal, removeDeployment, saveDeployment, stopDeploy } from "@/actions";
 import type { DeployMode, DeployRun, DeployRunSummary, Deployment, RunKind, Server as DeployServer } from "@/lib/types";
 import { useStatus } from "./status-provider";
 import { TerminalView } from "./terminal-view";
 import { LockStrip, foreignLocks } from "./projects-view";
+import { EnvFileDialog } from "./env-file";
 import { Button, Card, CardTitle, Confirm, Dialog, Dot, ErrorNote, Field, IconButton, Input, Select, Spinner, Textarea, cx } from "./ui";
 import { formatBytes } from "@/lib/format";
 
@@ -29,6 +30,7 @@ export function Deployments({ projectId }: { projectId: string }) {
   const [history, setHistory] = useState<DeployRunSummary[] | null>(null);
   const [deployments, setDeployments] = useState<Deployment[] | null>(null);
   const [editing, setEditing] = useState<Deployment | "new" | null>(null);
+  const [envFor, setEnvFor] = useState<Deployment | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [watched, setWatched] = useState<DeployRun | null>(null);
   const [logOpen, setLogOpen] = useState(true);
@@ -184,6 +186,9 @@ export function Deployments({ projectId }: { projectId: string }) {
                     >
                       <TerminalSquare className="size-3.5" />
                     </IconButton>
+                    <IconButton label={`Environment file on ${deployment.serverName} (${deployment.envPath})`} onClick={() => setEnvFor(deployment)}>
+                      <FileKey2 className="size-3.5" />
+                    </IconButton>
                     <IconButton label="Edit deployment" onClick={() => setEditing(deployment)}>
                       <Pencil className="size-3.5" />
                     </IconButton>
@@ -319,6 +324,8 @@ export function Deployments({ projectId }: { projectId: string }) {
           </div>
         </Dialog>
       )}
+
+      {envFor && <EnvFileDialog deployment={envFor} onClose={() => setEnvFor(null)} />}
 
       {editing && (
         <DeploymentDialog

@@ -231,6 +231,7 @@ export type Deployment = {
   platform: string | null;
   envPath: string;
   envContent: string;
+  envAtBuild: boolean;
   buildArgs: string;
   requireCleanGit: boolean;
   healthUrl: string;
@@ -254,6 +255,7 @@ export type DeploymentInput = {
   platform: string;
   envPath: string;
   envContent: string;
+  envAtBuild: boolean;
   buildArgs: string;
   requireCleanGit: boolean;
   healthUrl: string;

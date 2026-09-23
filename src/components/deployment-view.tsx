@@ -307,13 +307,16 @@ export function DeploymentView({ id }: { id: string }) {
                   <Row label="Platform">
                     <span>{deployment.platform || "detected from the server"}</span>
                   </Row>
-                  <Row label="Build variables">
+                  <Row label="Extra build variables">
                     <span className="font-mono text-[11px]">{buildArgNames.length ? buildArgNames.join(", ") : "—"}</span>
                   </Row>
                 </>
               )}
               <Row label="Env file">
-                <span>{envCount ? `${deployment.envPath} · ${envCount} variable${envCount === 1 ? "" : "s"}` : "—"}</span>
+                <span>
+                  {envCount ? `${deployment.envPath} · ${envCount} variable${envCount === 1 ? "" : "s"}` : deployment.envAtBuild && deployment.mode === "image" ? `${deployment.envPath} on the server` : "—"}
+                  {deployment.envAtBuild && deployment.mode === "image" && (envCount ? " · also at build" : " · at build")}
+                </span>
               </Row>
               <Row label="Health check">
                 <span className="flex items-center justify-end gap-1">

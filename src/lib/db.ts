@@ -128,7 +128,7 @@ export function db() {
     if (!deploymentColumns.includes(column)) connection.exec(`ALTER TABLE deployments ADD COLUMN ${column} TEXT`);
   }
   const runColumns = (connection.prepare("PRAGMA table_info(deploy_runs)").all() as Array<{ name: string }>).map((c) => c.name);
-  for (const column of ["kind", "username"]) {
+  for (const column of ["kind", "username", "commits"]) {
     if (!runColumns.includes(column)) connection.exec(`ALTER TABLE deploy_runs ADD COLUMN ${column} TEXT`);
   }
   const actionColumns = (connection.prepare("PRAGMA table_info(project_actions)").all() as Array<{ name: string }>).map((c) => c.name);

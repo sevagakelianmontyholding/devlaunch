@@ -10,6 +10,7 @@ import type { ActiveAction, ActiveDeploy, DashboardData, PipelineRun, RecentRun,
 import { PageHeader } from "./app-shell";
 import { ProjectDialog } from "./project-dialog";
 import { LockStrip } from "./projects-view";
+import { UndeployedStrip } from "./undeployed";
 import { VpnPill } from "./vpn-card";
 import { useStatus } from "./status-provider";
 import { Button, Card, CardTitle, Dot, IconButton, Monogram, cx, timeAgo } from "./ui";
@@ -90,13 +91,20 @@ export function DashboardView() {
       const project = projects.find((item) => item.id === projectId);
       items.push({ key: `down:${projectId}`, node: <DownSiteRow projectId={projectId} projectName={project?.name ?? projectId} uptime={uptime} /> });
     }
+    for (const [projectId, list] of Object.entries(status.undeployed)) {
+      const project = projects.find((item) => item.id === projectId);
+      for (const item of list) {
+        if (status.activeDeploys[projectId]?.deploymentId === item.deploymentId) continue;
+        items.push({ key: `undeployed:${item.deploymentId}`, node: <div className="[&>a]:mt-0"><UndeployedStrip item={item} projectName={project?.name ?? projectId} /></div> });
+      }
+    }
     for (const run of Object.values(status.activePipelines)) {
       if (run.status !== "running") continue;
       const pipeline = data?.pipelines.find((item) => item.id === run.pipelineId);
       items.push({ key: `pipeline:${run.id}`, node: <ActivePipelineRow name={pipeline?.name ?? "Pipeline"} run={run} /> });
     }
     return items;
-  }, [status.activeDeploys, status.activeActions, status.activePipelines, status.uptime, status.locks, projects, data]);
+  }, [status.activeDeploys, status.activeActions, status.activePipelines, status.uptime, status.locks, status.undeployed, projects, data]);
 
   const toggle = async (projectId: string, isRunning: boolean) => {
     setBusyId(projectId);
@@ -156,7 +164,7 @@ export function DashboardView() {
           Happening now
         </CardTitle>
         {now.length === 0 ? (
-          <p className="text-[12px] text-ink-faint">All quiet. Nothing is deploying here or from another Mac, and every live site is answering.</p>
+          <p className="text-[12px] text-ink-faint">All quiet. Nothing is deploying here or from another Mac, everything pushed is deployed, and every live site is answering.</p>
         ) : (
           <div className="space-y-2">{now.map((item) => <div key={item.key}>{item.node}</div>)}</div>
         )}

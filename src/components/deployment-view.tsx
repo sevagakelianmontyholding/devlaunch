@@ -15,6 +15,7 @@ import { useStatus } from "./status-provider";
 import { TerminalView } from "./terminal-view";
 import { Button, Card, CardTitle, Confirm, Dialog, Dot, Empty, IconButton, Spinner, cx } from "./ui";
 import { EnvFileCard } from "./env-file";
+import { UndeployedNote } from "./undeployed";
 
 const kindLabel = { deploy: "Deploy", commands: "Commands", rollback: "Rollback" } as const;
 
@@ -141,6 +142,7 @@ export function DeploymentView({ id }: { id: string }) {
   const state = runTone(lastRun);
   const upload = watched?.status === "running" ? watched.upload : null;
   const locks = foreignLocks(status.locks, [deployment], status.activeDeploys);
+  const undeployed = runningId ? null : ((status.undeployed[deployment.projectId] ?? []).find((item) => item.deploymentId === deployment.id) ?? null);
   const commands = deployment.commands.split("\n").map((line) => line.trim()).filter((line) => line && !line.startsWith("#"));
 
   return (
@@ -217,6 +219,8 @@ export function DeploymentView({ id }: { id: string }) {
           <LockStrip held={held} />
         </div>
       ))}
+
+      {undeployed && <UndeployedNote item={undeployed} className="mb-4" />}
 
       {upload && (
         <div className="mb-4 rounded-lg border border-accent/20 bg-accent/[0.05] px-3 py-2">

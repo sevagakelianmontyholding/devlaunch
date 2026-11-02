@@ -12,6 +12,7 @@ import { ensureBackups } from "./backups";
 import { activePipelineRunsById, ensureScheduler } from "./pipelines";
 import { getTerminalSettings } from "./terminal";
 import { ensureUptimeMonitor, uptimeByProject } from "./uptime";
+import { undeployedByProject } from "./undeployed";
 import { listProjects, purgeExpiredTrash } from "./projects";
 import { run } from "./shell";
 import type { Container, Project, ProjectRuntime, SessionUser, Status } from "./types";
@@ -80,9 +81,10 @@ export async function getStatus(user: SessionUser): Promise<Status> {
   const projects = listProjects();
   ensureIcons(projects);
   const docker = await dockerGroups();
-  const [runtimes, repos] = await Promise.all([
+  const [runtimes, repos, undeployed] = await Promise.all([
     Promise.all(projects.map((project) => runtimeFor(project, docker.groups))),
     Promise.all(projects.map(async (project) => [project.id, await repoStatuses(project)] as const)),
+    undeployedByProject(projects),
   ]);
   return {
     checkedAt: new Date().toISOString(),
@@ -100,6 +102,7 @@ export async function getStatus(user: SessionUser): Promise<Status> {
     terminal: getTerminalSettings(),
     deployments: deploymentSummariesByProject(),
     activePipelines: activePipelineRunsById(),
+    undeployed,
     user,
   };
 }

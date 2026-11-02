@@ -4,7 +4,7 @@ import path from "node:path";
 import { launchRun } from "./docker";
 import { getProject } from "./projects";
 import { run, shQuote, UserError } from "./shell";
-import type { GitAction, LocalRun, Project, RepoStatus } from "./types";
+import type { DeployedCommit, DeployMode, GitAction, LocalRun, Project, RepoStatus } from "./types";
 
 const MAX_REPOS = 12;
 const AUTO_FETCH_MS = 5 * 60_000;
@@ -158,4 +158,73 @@ export async function startGitRun(projectId: string, repoPath: string | null, ac
   if (action === "fetch" || action === "pull") for (const repo of repos) lastFetch.set(repo.abs, Date.now());
   const label = repos.length === 1 ? `${verbs[action]} ${repos[0]!.name}` : `${verbs[action]} ${repos.length} repositories`;
   return launchRun(project, action, steps.join(" && "), path.resolve(project.path), 5 * 60_000, `${label}\n`);
+}
+
+// The repos a deployment ships: for an image build, the ones that contain
+// the build context or sit inside it (a frontend/backend project deploys
+// one of them); otherwise, or when nothing matches, all of them.
+export async function deploymentRepos(project: Project, mode: DeployMode, buildContext: string | null) {
+  const repos = await discoverRepos(project);
+  if (mode !== "image") return repos;
+  const context = path.resolve(project.path, buildContext || ".");
+  const inside = (child: string, parent: string) => child === parent || child.startsWith(parent + path.sep);
+  const matching = repos.filter((repo) => inside(context, repo.abs) || inside(repo.abs, context));
+  // The innermost match wins over a root repo that only wraps it.
+  const innermost = matching.filter((repo) => !matching.some((other) => other !== repo && inside(other.abs, repo.abs)));
+  return innermost.length ? innermost : repos;
+}
+
+// What a deploy is about to ship, per repo. An image is built from the
+// working tree on this Mac, so that is HEAD; server commands usually pull
+// from the remote, so that is the remote branch.
+export async function deployedCommits(project: Project, mode: DeployMode, buildContext: string | null): Promise<DeployedCommit[]> {
+  const repos = await deploymentRepos(project, mode, buildContext);
+  const result: DeployedCommit[] = [];
+  for (const repo of repos) {
+    try {
+      const ref = (await git(repo.abs, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]).catch(() => ({ stdout: "" }))).stdout.trim() || null;
+      if (mode !== "image" && ref) await git(repo.abs, ["fetch", "--quiet"], 20_000).catch(() => undefined);
+      const sha = (await git(repo.abs, ["rev-parse", mode !== "image" && ref ? ref : "HEAD"])).stdout.trim();
+      if (sha) result.push({ path: repo.path, sha, ref });
+    } catch {
+      // Not a usable repo (no commits yet): nothing to record.
+    }
+  }
+  return result;
+}
+
+// Commits on the remote branch that the given deploy did not include. With
+// no recorded commit (deploys from before this was tracked) it falls back to
+// commits made after the deploy started.
+// The recorded commit for this repo: by path, or (when recorded on a Mac
+// with a different folder layout) any recorded commit this clone knows.
+export async function matchRecorded(repo: { abs: string; path: string }, commits: DeployedCommit[]) {
+  const byPath = commits.find((item) => item.path === repo.path);
+  if (byPath) return byPath;
+  for (const item of commits) {
+    if (await git(repo.abs, ["cat-file", "-e", `${item.sha}^{commit}`]).then(() => true, () => false)) return item;
+  }
+  return null;
+}
+
+export async function commitsSince(repo: { abs: string; name: string }, recorded: DeployedCommit | null, since: string) {
+  const ref = recorded?.ref ?? ((await git(repo.abs, ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"]).catch(() => ({ stdout: "" }))).stdout.trim() || null);
+  if (!ref) return null;
+  const range = recorded ? [`${recorded.sha}..${ref}`] : [`--since=${since}`, ref];
+  try {
+    const count = Number((await git(repo.abs, ["rev-list", "--count", "--no-merges", ...range])).stdout.trim()) || 0;
+    if (count === 0) return { ref, count, commits: [] };
+    const log = await git(repo.abs, ["log", "--no-merges", "-n", "8", "--format=%h%x1f%s%x1f%an%x1f%cI", ...range]);
+    const commits = log.stdout
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => {
+        const [hash = "", subject = "", author = "", date = ""] = line.split("\x1f");
+        return { hash, subject, author, date, repo: repo.name };
+      });
+    return { ref, count, commits };
+  } catch {
+    // The recorded commit is not in this clone (history rewritten): skip.
+    return null;
+  }
 }

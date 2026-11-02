@@ -194,6 +194,7 @@ export type Status = {
   terminal: TerminalSettings;
   deployments: Record<string, DeploymentSummary[]>;
   activePipelines: Record<string, PipelineRun>;
+  undeployed: Record<string, Undeployed[]>;
   user: SessionUser;
 };
 
@@ -329,6 +330,28 @@ export type RepoStatus = {
   upstream: boolean;
   lastCommit: { hash: string; subject: string; date: string } | null;
   error: string | null;
+};
+
+// The commit of each repo that a deploy shipped, recorded when it starts.
+export type DeployedCommit = { path: string; sha: string; ref: string | null };
+
+// Written to ~/.devlaunch/deployed/<key>.json on the server after a deploy
+// ships code, so every Mac (and colleague) knows what is live there.
+export type ShippedRecord = { key: string; commits: DeployedCommit[]; user: string | null; machine: string; at: string; deployment: string };
+
+export type UndeployedCommit = { hash: string; subject: string; author: string; date: string; repo: string };
+
+// Commits on the remote (GitHub) that the last successful deploy of a
+// deployment did not include: pushed, but not deployed.
+export type Undeployed = {
+  deploymentId: string;
+  deploymentName: string;
+  serverName: string;
+  count: number;
+  commits: UndeployedCommit[];
+  repos: string[];
+  deployedAt: string;
+  deployedBy: string | null;
 };
 
 export type UptimeStatus = {

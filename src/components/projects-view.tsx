@@ -11,6 +11,7 @@ import type { ActiveAction, ActiveDeploy, Project, ProjectRuntime, RepoStatus, S
 import { PageHeader } from "./app-shell";
 import { ProjectDialog } from "./project-dialog";
 import { TrashCard } from "./trash-card";
+import { UndeployedStrip, useUndeployed } from "./undeployed";
 import { useStatus } from "./status-provider";
 import { Button, Dot, Empty, IconButton, IconLink, Input, Monogram, Segmented, cx, timeAgo } from "./ui";
 
@@ -179,6 +180,7 @@ function ProjectCard({
   onTerminal: () => void;
 }) {
   const navigate = useNavigate();
+  const undeployed = useUndeployed(project.id);
   const state = !runtime?.exists
     ? { label: "Folder missing", tone: "danger" as const }
     : runtime.running
@@ -226,6 +228,9 @@ function ProjectCard({
       {action && !deploy && <ActionStrip action={action} />}
       {locks.map((held) => (
         <LockStrip key={held.serverId} held={held} />
+      ))}
+      {undeployed.map((item) => (
+        <UndeployedStrip key={item.deploymentId} item={item} />
       ))}
 
       <div className="mt-auto flex items-center justify-end gap-2 pt-4">

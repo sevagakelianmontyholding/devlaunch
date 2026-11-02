@@ -9,6 +9,7 @@ import { useStatus } from "./status-provider";
 import { TerminalView } from "./terminal-view";
 import { LockStrip, foreignLocks } from "./projects-view";
 import { EnvFileDialog } from "./env-file";
+import { UndeployedNote, useUndeployed } from "./undeployed";
 import { Button, Card, CardTitle, Confirm, Dialog, Dot, ErrorNote, Field, IconButton, Input, Select, Spinner, Textarea, cx } from "./ui";
 import { formatBytes } from "@/lib/format";
 
@@ -31,6 +32,7 @@ export function Deployments({ projectId }: { projectId: string }) {
   const [deployments, setDeployments] = useState<Deployment[] | null>(null);
   const [editing, setEditing] = useState<Deployment | "new" | null>(null);
   const [envFor, setEnvFor] = useState<Deployment | null>(null);
+  const undeployed = useUndeployed(projectId);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [watched, setWatched] = useState<DeployRun | null>(null);
   const [logOpen, setLogOpen] = useState(true);
@@ -242,6 +244,10 @@ export function Deployments({ projectId }: { projectId: string }) {
                     {lastRun && ` · ${new Date(lastRun.startedAt).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}`}
                   </button>
                 </div>
+
+                {!runningId && undeployed.find((item) => item.deploymentId === deployment.id) && (
+                  <UndeployedNote item={undeployed.find((item) => item.deploymentId === deployment.id)!} className="mt-3" />
+                )}
 
                 {live?.upload && (
                   <div className="mt-2 rounded-lg border border-accent/20 bg-accent/[0.05] px-3 py-2">

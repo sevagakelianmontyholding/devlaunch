@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { access, readFile, unlink, writeFile } from "node:fs/promises";
 import { hostname, tmpdir } from "node:os";
 import path from "node:path";
@@ -9,12 +9,12 @@ import { db, now } from "./db";
 import { declareArgs, parseEnvFile } from "./dockerfile";
 import { notifyFinished } from "./notify";
 import { formatBytes } from "./format";
-import { gitProblems } from "./git";
-import { rememberLock } from "./locks";
+import { deployedCommits, gitProblems } from "./git";
+import { rememberLock, rememberShipped } from "./locks";
 import { getProject } from "./projects";
 import { getServerRow, parseLock, readRemoteFile, sshArgs, writeKey, type ServerRow } from "./servers";
 import { killProcessGroup, newControl, run, shQuote, spawnTracked, stream, UserError, waitForExit, type ProcessControl } from "./shell";
-import type { ActiveDeploy, DeployLock, DeployMode, DeployRun, DeployRunSummary, Deployment, DeploymentInput, DeploymentSummary, RunKind, UploadProgress } from "./types";
+import type { ActiveDeploy, DeployedCommit, DeployLock, ShippedRecord, DeployMode, DeployRun, DeployRunSummary, Deployment, DeploymentInput, DeploymentSummary, RunKind, UploadProgress } from "./types";
 
 const LOG_LIMIT = 200_000;
 const SAFE_IMAGE = /^[a-z0-9][a-z0-9._/-]*$/;
@@ -314,14 +314,14 @@ export function activeDeploysByProject() {
   return result;
 }
 
-function persist(run: DeployRun) {
+function persist(run: DeployRun, commits: DeployedCommit[] | null) {
   const database = db();
   database
     .prepare(
-      `INSERT INTO deploy_runs (id, deployment_id, project_id, status, kind, username, log, started_at, finished_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO deploy_runs (id, deployment_id, project_id, status, kind, username, log, started_at, finished_at, commits)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(run.id, run.deploymentId, run.projectId, run.status, run.kind, run.username, run.log, run.startedAt, run.finishedAt);
+    .run(run.id, run.deploymentId, run.projectId, run.status, run.kind, run.username, run.log, run.startedAt, run.finishedAt, commits?.length ? JSON.stringify(commits) : null);
   database
     .prepare(
       `DELETE FROM deploy_runs WHERE deployment_id = ? AND id NOT IN (
@@ -580,6 +580,22 @@ async function healthCheck(url: string, timeoutSeconds: number, control: Process
 
 const LOCK_FILE = "$HOME/.devlaunch/deploy.lock";
 
+// Identifies what a deployment ships on its server, the same on every Mac:
+// the image for image deployments, else the server directory.
+export function shippedKey(mode: DeployMode, imageName: string | null, remotePath: string) {
+  return mode === "image" && imageName ? `image:${imageName}` : `dir:${remotePath.replace(/\/$/, "")}`;
+}
+
+function shippedFile(key: string) {
+  return `$HOME/.devlaunch/deployed/${createHash("sha1").update(key).digest("hex").slice(0, 16)}.json`;
+}
+
+async function writeShipped(server: ServerRow, record: ShippedRecord) {
+  const b64 = Buffer.from(JSON.stringify(record), "utf8").toString("base64");
+  await run("ssh", [...sshArgs(server), `mkdir -p $HOME/.devlaunch/deployed && echo ${shQuote(b64)} | base64 -d > ${shippedFile(record.key)}`], { timeoutMs: 25_000 });
+  rememberShipped(server.id, record);
+}
+
 async function readLock(server: ServerRow): Promise<DeployLock | null> {
   const { stdout } = await run("ssh", [...sshArgs(server), `cat ${LOCK_FILE} 2>/dev/null || true`], { timeoutMs: 25_000 });
   return parseLock(stdout);
@@ -638,6 +654,10 @@ export async function startRun(
     if (lock) throw new UserError(`LOCK:${describeLock(lock, server.name)}`);
   }
 
+  // Remember which commit this run ships, for "pushed but not deployed".
+  const ships = kind === "deploy" || (kind === "commands" && config.mode !== "image");
+  const commits = ships ? await deployedCommits(project, config.mode, config.build_context).catch(() => []) : null;
+
   const run: DeployRun = {
     id: randomUUID(),
     deploymentId,
@@ -669,6 +689,13 @@ export async function startRun(
       if (locked) await releaseLock(server, run.id);
       locked = false;
       run.status = "success";
+      if (commits) {
+        // Tell every Mac what is live now, for "pushed but not deployed".
+        const record: ShippedRecord = { key: shippedKey(config.mode, config.image_name, config.remote_path), commits, user: lock.user, machine: lock.machine, at: now(), deployment: config.name };
+        await writeShipped(server, record).catch(() => {
+          run.log += "  (could not record the deployed commit on the server)\n";
+        });
+      }
       run.log += "\n✔ Deployed\n";
     } catch (error) {
       if (locked) await releaseLock(server, run.id);
@@ -684,7 +711,7 @@ export async function startRun(
         run.status === "success",
       );
       try {
-        persist(run);
+        persist(run, commits);
       } catch {
         // Keep the in-memory record if persistence fails.
       }

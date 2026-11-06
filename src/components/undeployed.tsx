@@ -34,7 +34,7 @@ export function UndeployedStrip({ item, projectName }: { item: Undeployed; proje
       <span className="shrink-0 font-medium text-warn">Pushed, not deployed</span>
       <span className="min-w-0 truncate text-ink-dim">
         · {projectName ? `${projectName} · ` : ""}
-        {commitsLabel(item.count)} since the last deploy to {item.deploymentName}
+        {commitsLabel(item.count)} in {item.repos.join(", ")} since the last deploy to {item.deploymentName}
       </span>
       <span className="ml-auto hidden shrink-0 text-ink-faint sm:inline">deployed {timeAgo(item.deployedAt)}{item.deployedBy ? ` by ${item.deployedBy}` : ""}</span>
     </Link>
@@ -50,7 +50,9 @@ export function UndeployedNote({ item, className }: { item: Undeployed; classNam
       <button type="button" onClick={() => setOpen(!open)} className="flex w-full min-w-0 items-center gap-1.5 text-left">
         <GitCommitHorizontal className="size-3.5 shrink-0 text-warn" />
         <span className="min-w-0 flex-1">
-          <span className="font-medium text-warn">{commitsLabel(item.count)} pushed but not deployed</span>
+          <span className="font-medium text-warn">
+            {commitsLabel(item.count)} in {item.repos.join(", ")} pushed but not deployed
+          </span>
           <span className="text-ink-dim">
             {" "}
             · last deploy {timeAgo(item.deployedAt)}

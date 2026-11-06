@@ -38,6 +38,7 @@ type Row = {
   commands: string;
   platform: string | null;
   env_path: string | null;
+  ship_repos: string | null;
   require_clean_git: string | null;
   health_url: string | null;
   health_timeout: string | null;
@@ -103,6 +104,7 @@ function fromRow(row: Row): Deployment {
     commands: row.commands,
     platform: row.platform,
     envPath: row.env_path ?? ".env",
+    shipRepos: parseShipRepos(row.ship_repos),
     requireCleanGit: row.require_clean_git !== "0",
     healthUrl: row.health_url ?? "",
     healthTimeout: Number(row.health_timeout) || 60,
@@ -147,6 +149,19 @@ export function deploymentSummariesByProject() {
     (result[row.project_id] ??= []).push({ id: row.id, name: row.name, serverId: row.server_id, serverName: row.server_name, mode: row.mode });
   }
   return result;
+}
+
+function parseShipRepos(text: string | null): string[] {
+  try {
+    const value = text ? (JSON.parse(text) as unknown) : [];
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export function shipTarget(row: { mode: DeployMode; build_context: string | null; remote_path: string; commands: string; ship_repos: string | null }) {
+  return { mode: row.mode, buildContext: row.build_context, remotePath: row.remote_path, commands: row.commands, shipRepos: parseShipRepos(row.ship_repos) };
 }
 
 function getRow(id: string) {
@@ -204,7 +219,7 @@ function validate(input: DeploymentInput) {
     if (buildContext && !SAFE_RELATIVE.test(buildContext)) throw new UserError("The build context must be a relative folder");
     if (dockerfile && !SAFE_RELATIVE.test(dockerfile)) throw new UserError("The Dockerfile must be a relative path");
   }
-  return { name, mode: input.mode, remotePath, commands, imageName, imageTag, buildContext, dockerfile, platform, envPath, requireCleanGit: input.requireCleanGit, healthUrl, healthTimeout, autoRollback };
+  return { name, mode: input.mode, remotePath, commands, imageName, imageTag, buildContext, dockerfile, platform, envPath, shipRepos: [...new Set((input.shipRepos ?? []).map((item) => item.trim()).filter((item) => item && SAFE_RELATIVE.test(item) && !item.includes("..")))].slice(0, 12), requireCleanGit: input.requireCleanGit, healthUrl, healthTimeout, autoRollback };
 }
 
 export function createDeployment(projectId: string, input: DeploymentInput): Deployment {
@@ -215,8 +230,8 @@ export function createDeployment(projectId: string, input: DeploymentInput): Dep
   const timestamp = now();
   db()
     .prepare(
-      `INSERT INTO deployments (id, project_id, server_id, name, mode, image_name, image_tag, build_context, dockerfile, remote_path, commands, platform, env_path, require_clean_git, health_url, health_timeout, auto_rollback, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO deployments (id, project_id, server_id, name, mode, image_name, image_tag, build_context, dockerfile, remote_path, commands, platform, env_path, ship_repos, require_clean_git, health_url, health_timeout, auto_rollback, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -232,6 +247,7 @@ export function createDeployment(projectId: string, input: DeploymentInput): Dep
       deployment.commands,
       deployment.platform,
       deployment.envPath,
+      deployment.shipRepos.length ? JSON.stringify(deployment.shipRepos) : null,
       deployment.requireCleanGit ? "1" : "0",
       deployment.healthUrl || null,
       String(deployment.healthTimeout),
@@ -249,7 +265,7 @@ export function updateDeployment(id: string, input: DeploymentInput): Deployment
   db()
     .prepare(
       `UPDATE deployments SET server_id = ?, name = ?, mode = ?, image_name = ?, image_tag = ?, build_context = ?,
-       dockerfile = ?, remote_path = ?, commands = ?, platform = ?, env_path = ?, require_clean_git = ?,
+       dockerfile = ?, remote_path = ?, commands = ?, platform = ?, env_path = ?, ship_repos = ?, require_clean_git = ?,
        health_url = ?, health_timeout = ?, auto_rollback = ?, updated_at = ? WHERE id = ?`,
     )
     .run(
@@ -264,6 +280,7 @@ export function updateDeployment(id: string, input: DeploymentInput): Deployment
       deployment.commands,
       deployment.platform,
       deployment.envPath,
+      deployment.shipRepos.length ? JSON.stringify(deployment.shipRepos) : null,
       deployment.requireCleanGit ? "1" : "0",
       deployment.healthUrl || null,
       String(deployment.healthTimeout),
@@ -656,7 +673,7 @@ export async function startRun(
 
   // Remember which commit this run ships, for "pushed but not deployed".
   const ships = kind === "deploy" || (kind === "commands" && config.mode !== "image");
-  const commits = ships ? await deployedCommits(project, config.mode, config.build_context).catch(() => []) : null;
+  const commits = ships ? await deployedCommits(project, shipTarget(config)).catch(() => []) : null;
 
   const run: DeployRun = {
     id: randomUUID(),

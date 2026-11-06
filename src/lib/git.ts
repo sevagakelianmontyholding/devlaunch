@@ -160,25 +160,47 @@ export async function startGitRun(projectId: string, repoPath: string | null, ac
   return launchRun(project, action, steps.join(" && "), path.resolve(project.path), 5 * 60_000, `${label}\n`);
 }
 
-// The repos a deployment ships: for an image build, the ones that contain
-// the build context or sit inside it (a frontend/backend project deploys
-// one of them); otherwise, or when nothing matches, all of them.
-export async function deploymentRepos(project: Project, mode: DeployMode, buildContext: string | null) {
+export type ShipTarget = { mode: DeployMode; buildContext: string | null; remotePath: string; commands: string; shipRepos: string[] };
+
+// The repos a deployment ships, so a frontend push does not flag the backend
+// deployment. Picked in the deployment, or detected:
+//   - image: the repo holding the build context (or the repos inside it),
+//   - commands: repos named by the server directory's last folder or by a
+//     `cd` in the commands (a deployment in .../backend running `git pull`
+//     ships the backend repo),
+// and every repo when nothing matches.
+export async function deploymentRepos(project: Project, target: ShipTarget) {
   const repos = await discoverRepos(project);
-  if (mode !== "image") return repos;
-  const context = path.resolve(project.path, buildContext || ".");
-  const inside = (child: string, parent: string) => child === parent || child.startsWith(parent + path.sep);
-  const matching = repos.filter((repo) => inside(context, repo.abs) || inside(repo.abs, context));
-  // The innermost match wins over a root repo that only wraps it.
-  const innermost = matching.filter((repo) => !matching.some((other) => other !== repo && inside(other.abs, repo.abs)));
-  return innermost.length ? innermost : repos;
+  const norm = (value: string) => value.replace(/^\.\//, "").replace(/\/+$/, "");
+  if (target.shipRepos.length) {
+    const picked = repos.filter((repo) => target.shipRepos.map(norm).includes(norm(repo.path)));
+    if (picked.length) return picked;
+  }
+  if (target.mode === "image") {
+    const context = path.resolve(project.path, target.buildContext || ".");
+    const inside = (child: string, parent: string) => child === parent || child.startsWith(parent + path.sep);
+    const matching = repos.filter((repo) => inside(context, repo.abs) || inside(repo.abs, context));
+    // The innermost match wins over a root repo that only wraps it.
+    const innermost = matching.filter((repo) => !matching.some((other) => other !== repo && inside(other.abs, repo.abs)));
+    return innermost.length ? innermost : repos;
+  }
+  const names = new Set<string>();
+  const last = target.remotePath.replace(/\/+$/, "").split("/").pop();
+  if (last) names.add(last);
+  for (const match of target.commands.matchAll(/\bcd\s+["']?([^\s"';&|]+)/g)) {
+    const first = norm(match[1]!).split("/").filter((part) => part && part !== "..")[0];
+    if (first) names.add(first);
+  }
+  const named = repos.filter((repo) => repo.path !== "." && (names.has(norm(repo.path)) || names.has(path.basename(repo.abs))));
+  return named.length ? named : repos;
 }
 
 // What a deploy is about to ship, per repo. An image is built from the
 // working tree on this Mac, so that is HEAD; server commands usually pull
 // from the remote, so that is the remote branch.
-export async function deployedCommits(project: Project, mode: DeployMode, buildContext: string | null): Promise<DeployedCommit[]> {
-  const repos = await deploymentRepos(project, mode, buildContext);
+export async function deployedCommits(project: Project, target: ShipTarget): Promise<DeployedCommit[]> {
+  const repos = await deploymentRepos(project, target);
+  const mode = target.mode;
   const result: DeployedCommit[] = [];
   for (const repo of repos) {
     try {
@@ -193,9 +215,6 @@ export async function deployedCommits(project: Project, mode: DeployMode, buildC
   return result;
 }
 
-// Commits on the remote branch that the given deploy did not include. With
-// no recorded commit (deploys from before this was tracked) it falls back to
-// commits made after the deploy started.
 // The recorded commit for this repo: by path, or (when recorded on a Mac
 // with a different folder layout) any recorded commit this clone knows.
 export async function matchRecorded(repo: { abs: string; path: string }, commits: DeployedCommit[]) {

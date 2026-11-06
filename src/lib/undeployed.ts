@@ -1,8 +1,8 @@
 import { db } from "./db";
 import { commitsSince, deploymentRepos, matchRecorded } from "./git";
-import { shippedKey } from "./deploy";
+import { shipTarget, shippedKey } from "./deploy";
 import { shippedOn } from "./locks";
-import type { DeployedCommit, DeployMode, Project, Undeployed, UndeployedCommit } from "./types";
+import type { DeployedCommit, DeployMode, Project, RepoStatus, Undeployed, UndeployedCommit } from "./types";
 
 // "Pushed but not deployed": for every deployment, the commits on the remote
 // branch (GitHub) that its last deploy did not ship. The remote branches are
@@ -17,11 +17,13 @@ import type { DeployedCommit, DeployMode, Project, Undeployed, UndeployedCommit 
 //   - the build time of the image on the server (image deployments only; a
 //     time, for deploys that left no record).
 
-const TTL_MS = 30_000;
+// Recomputed as soon as a repo or the deployment changes (see the cache key);
+// the TTL only catches anything the key misses.
+const TTL_MS = 5 * 60_000;
 const globalState = globalThis as unknown as { devlaunchUndeployed?: Map<string, { at: number; key: string; value: Undeployed | null }> };
 const cache = (globalState.devlaunchUndeployed ??= new Map());
 
-type DeploymentRow = { id: string; project_id: string; server_id: string; name: string; mode: DeployMode; build_context: string | null; image_name: string | null; image_tag: string | null; remote_path: string; server_name: string };
+type DeploymentRow = { id: string; project_id: string; server_id: string; name: string; mode: DeployMode; build_context: string | null; image_name: string | null; image_tag: string | null; remote_path: string; commands: string; ship_repos: string | null; server_name: string };
 type RunRow = { id: string; started_at: string; finished_at: string | null; commits: string | null; username: string | null };
 // What the comparison starts from: exact commits, or only a time.
 type Basis = { at: string; since: string; commits: DeployedCommit[]; by: string | null };
@@ -62,7 +64,7 @@ function basisFor(deployment: DeploymentRow): Basis | null {
 }
 
 async function compute(project: Project, deployment: DeploymentRow, basis: Basis): Promise<Undeployed | null> {
-  const repos = await deploymentRepos(project, deployment.mode, deployment.build_context);
+  const repos = await deploymentRepos(project, shipTarget(deployment));
   let count = 0;
   const commits: UndeployedCommit[] = [];
   const names: string[] = [];
@@ -90,11 +92,11 @@ async function compute(project: Project, deployment: DeploymentRow, basis: Basis
   };
 }
 
-export async function undeployedByProject(projects: Project[]): Promise<Record<string, Undeployed[]>> {
+export async function undeployedByProject(projects: Project[], repoStates: Record<string, RepoStatus[]> = {}): Promise<Record<string, Undeployed[]>> {
   const rows = db()
     .prepare(
       `SELECT deployments.id, deployments.project_id, deployments.server_id, deployments.name, deployments.mode, deployments.build_context,
-              deployments.image_name, deployments.image_tag, deployments.remote_path, servers.name AS server_name
+              deployments.image_name, deployments.image_tag, deployments.remote_path, deployments.commands, deployments.ship_repos, servers.name AS server_name
        FROM deployments JOIN servers ON servers.id = deployments.server_id ORDER BY deployments.name COLLATE NOCASE`,
     )
     .all() as DeploymentRow[];
@@ -106,7 +108,10 @@ export async function undeployedByProject(projects: Project[]): Promise<Record<s
       if (!project) return;
       const basis = basisFor(deployment);
       if (!basis) return; // Never deployed: nothing to compare with.
-      const key = `${basis.at}:${basis.commits.length}:${project.path}`;
+      // A push changes ahead, a fetch that brings commits changes behind, a new
+      // commit changes the last hash; editing the deployment changes its settings.
+      const repoState = (repoStates[project.id] ?? []).map((repo) => `${repo.path}:${repo.branch}:${repo.ahead}:${repo.behind}:${repo.lastCommit?.hash ?? ""}`).join("|");
+      const key = [basis.at, basis.commits.length, project.path, repoState, deployment.mode, deployment.build_context, deployment.remote_path, deployment.commands, deployment.ship_repos].join("\u0000");
       const cached = cache.get(deployment.id);
       let value: Undeployed | null;
       if (cached && cached.key === key && Date.now() - cached.at < TTL_MS) value = cached.value;

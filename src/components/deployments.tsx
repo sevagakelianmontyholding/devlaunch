@@ -361,6 +361,8 @@ export function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { 
   const [platform, setPlatform] = useState(deployment?.platform ?? "");
   const [envPath, setEnvPath] = useState(deployment?.envPath ?? ".env");
   const [requireCleanGit, setRequireCleanGit] = useState(deployment?.requireCleanGit ?? true);
+  const [shipRepos, setShipRepos] = useState<string[]>(deployment?.shipRepos ?? []);
+  const projectRepos = status.repos[projectId] ?? [];
   const [healthUrl, setHealthUrl] = useState(deployment?.healthUrl ?? "");
   const [healthTimeout, setHealthTimeout] = useState(String(deployment?.healthTimeout ?? 60));
   const [autoRollback, setAutoRollback] = useState(deployment?.autoRollback ?? false);
@@ -383,7 +385,7 @@ export function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { 
     event.preventDefault();
     setSaving(true);
     setError(null);
-    const result = await saveDeployment(projectId, deployment?.id ?? null, { serverId, name, mode, imageName, imageTag, buildContext, dockerfile, remotePath, commands, platform, envPath, requireCleanGit, healthUrl, healthTimeout: Number(healthTimeout), autoRollback });
+    const result = await saveDeployment(projectId, deployment?.id ?? null, { serverId, name, mode, imageName, imageTag, buildContext, dockerfile, remotePath, commands, platform, envPath, shipRepos, requireCleanGit, healthUrl, healthTimeout: Number(healthTimeout), autoRollback });
     setSaving(false);
     if (!result.ok) return setError(result.error);
     onSaved();
@@ -466,6 +468,28 @@ export function DeploymentDialog({ projectId, deployment, onClose, onSaved }: { 
             className={mono}
           />
         </Field>
+
+        {projectRepos.length > 1 && (
+          <div className="rounded-lg border border-line bg-bg p-3">
+            <p className="text-[12px] font-medium">Repos this deployment ships</p>
+            <p className="mt-1 text-[11px] leading-4 text-ink-dim">
+              Used for &ldquo;pushed, not deployed&rdquo;: only pushes to these repos count for this deployment. Leave all unticked to detect it: an image deployment ships the repo holding its build context, a commands deployment the repo named by its server folder or a <span className="font-mono">cd</span> in its commands.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
+              {projectRepos.map((repo) => (
+                <label key={repo.path} className="flex cursor-pointer items-center gap-1.5 text-[12px]">
+                  <input
+                    type="checkbox"
+                    checked={shipRepos.includes(repo.path)}
+                    onChange={(event) => setShipRepos((current) => (event.target.checked ? [...current, repo.path] : current.filter((item) => item !== repo.path)))}
+                    className="accent-[#2dd4bf]"
+                  />
+                  <span className="font-mono">{repo.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="rounded-lg border border-line bg-bg p-3">
           <p className="text-[12px] font-medium">Environment file on the server</p>

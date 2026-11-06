@@ -234,6 +234,8 @@ export type Deployment = {
   commands: string;
   platform: string | null;
   envPath: string;
+  // Repo folders this deployment ships; empty means detected automatically.
+  shipRepos: string[];
   requireCleanGit: boolean;
   healthUrl: string;
   healthTimeout: number;
@@ -255,6 +257,8 @@ export type DeploymentInput = {
   commands: string;
   platform: string;
   envPath: string;
+  // Repo folders this deployment ships; empty means detected automatically.
+  shipRepos: string[];
   requireCleanGit: boolean;
   healthUrl: string;
   healthTimeout: number;

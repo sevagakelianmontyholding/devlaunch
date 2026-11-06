@@ -329,6 +329,9 @@ export function DeploymentView({ id }: { id: string }) {
                   )}
                 </span>
               </Row>
+              <Row label="Ships repos">
+                <span className="font-mono text-[11px]">{deployment.shipRepos.length ? deployment.shipRepos.join(", ") : "detected"}</span>
+              </Row>
               <Row label="Clean git required">
                 <span>{deployment.requireCleanGit ? "yes" : "no"}</span>
               </Row>
